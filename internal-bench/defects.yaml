@@ -13,6 +13,8 @@ the golden tag and the single reverted commit.
 - Every candidate records: id, subsystem, category, mechanism, detection,
   fix, independence check.
 - Categories and detection methods follow the table in `PLAN.md`.
+- Candidates are drafted at Phase 8 time (intent fresh) and injected at
+  Phase 10 as normally-worded commits that a clean reverting commit restores.
 
 ## Category budget
 
@@ -34,18 +36,402 @@ the golden tag and the single reverted commit.
 
 ## Candidates
 
-(This section is populated during Phase 10. Each entry is one YAML block.)
+All entries are grounding-verified against the Phase 7 tip (`bf9a734`). The
+`mechanism` line states the precise realistic mistake; `detection` names the
+specific test/tool from the matrix; `independence` argues a distinct root
+cause from every other entry (the cross-reference is the classification).
 
-```yaml
-# template:
-# - id: RV-001
-#   subsystem: scheduler
-#   category: concurrency
-#   mechanism: ""
-#   detection: ""
-#   fix: ""
-#   independence: ""
-```
+- id: RV-001
+  subsystem: api/grpc
+  category: type_safety
+  mechanism: gRPC `ListRunsRequest.limit` is accepted raw (i64) and cast to
+    usize before any clamp, so limit 0 / negative produces a "list nothing"
+    scan that the HTTP path rejects with InvalidArgument.
+  detection: `[F2P] api::grpc` boundary test asserting limit 0 is rejected
+    and negative limits are rejected, matching the HTTP path.
+  fix: clamp/validate wire limit in the gRPC converter exactly like
+    `payloads::RunQuery::into_filter`.
+  independence: wire-contract input shaping; no other candidate touches the
+    gRPC list converter.
+
+- id: RV-002
+  subsystem: persistence
+  category: type_safety
+  mechanism: `Store::next_run_number(def_name)` keys the submission counter
+    by name only; two tenants sharing a workflow name collide on run
+    numbers, breaking identity expectations on cross-tenant listings.
+  detection: `[F2P]` persistence test creating the same def name under two
+    tenants and asserting independent run numbers.
+  fix: key the counter by `(tenant, name)` in both stores.
+  independence: identity/keying root cause; distinct from RV-001 (input
+    shaping).
+
+- id: RV-003
+  subsystem: scheduler
+  category: state_transition
+  mechanism: when a task times out on its final attempt, `next_attempt_at_ms`
+    is left at the past deadline, the re-queue path computes a negative
+    delay, and the dispatcher hot-loops the same run every round.
+  detection: `[F2P]` scheduler test with ManualClock asserting a timed-out
+    run is parked after its last attempt and not re-claimed next poll.
+  fix: clamp the re-queue delay to a floor on the terminal-retry path.
+  independence: retry-timing state bug; unrelated to RV-004/005 which are
+    transition-order bugs.
+
+- id: RV-004
+  subsystem: state
+  category: state_transition
+  mechanism: `cancel_run` removes the queue entry unconditionally, but a
+    scan that already leased the run before the cancel lands afterwards —
+    the worker executes a run whose authoritative record is Cancelled.
+  detection: `[F2P]` state/concurrency test interleaving cancel and claim
+    on one run; worker must observe Cancelled and bail before dispatch.
+  fix: re-read the run inside the worker after claim and re-check status
+    before executing.
+  independence: claim/cancel interleave; distinct from RV-003 (retry time).
+
+- id: RV-005
+  subsystem: scheduler
+  category: state_transition
+  mechanism: after a successful final retry is acked, a stale `release` (the
+    worker's lease-token match passes because the token is reused) flips the
+    run back to Queued, re-dispatching a Succeeded run.
+  detection: `[F2P]` worker test with a token-reuse sequence asserting a
+    Succeeded run cannot be re-queued.
+  fix: `release` must verify the run is still non-terminal, not just the
+    lease token.
+  independence: ack/release ordering; distinct from RV-003/RV-004.
+
+- id: RV-006
+  subsystem: scheduler
+  category: resource_mgmt
+  mechanism: with `workers = 0` the pool spawns zero worker threads but the
+    scheduler still claims entries and hands them to a pool that can never
+    execute them; queue drains to nothing and `join` blocks forever.
+  detection: `[F2P]` serve/scheduler test for `workers = 0` asserting the
+    scheduler refuses to start (or the pool degrades to reject).
+  fix: short-circuit the scheduler when the pool is empty.
+  independence: capacity-zero lifecycle; distinct from all others.
+
+- id: RV-007
+  subsystem: scheduler
+  category: resource_mgmt
+  mechanism: on the lease-expiry release path the entry was already removed
+    by a racing ack; `release` swallows the NotFound and the worker forgets
+    to persist the terminal status, so the run stays Running forever and the
+    watcher watermark never advances.
+  detection: `[F2P]` scheduler test racing release against ack and asserting
+    the run eventually lands a terminal status.
+  fix: treat release-after-ack NotFound as success but still commit the
+    run's status.
+  independence: expiry/ack race; distinct from RV-004 (claim/cancel).
+
+- id: RV-008
+  subsystem: scheduler
+  category: resource_mgmt
+  mechanism: a panicking handler aborts its pool thread mid-claim, leaving
+    the queue entry permanently claimed (watchdogless); retry state is also
+    lost, so the run is stuck rather than failed.
+  detection: `[P2P]` + `[F2P]` test with a dividing handler asserting the
+    run ends Failed/Cancelled and the entry is never stuck claimed.
+  fix: catch panic at the pool boundary, release the lease, and mark the run
+    failed.
+  independence: panic containment; distinct from RV-007 (normal-path race).
+
+- id: RV-009
+  subsystem: scheduler
+  category: concurrency
+  mechanism: the dispatcher reads the run state before `claim`; between the
+    read and the claim a cancel/retry loop mutates it, so the worker
+    dispatches on stale state (TOCTOU) — an already-cancelled run executes.
+  detection: `[P2P]` loom model cối đria element: see `loom_model.rs`;
+    `[F2P]` determinism test with a barrier between read and claim.
+  fix: re-validate the run's state inside the claimed critical section.
+  independence: TOCTOU over state; distinct from RV-004 (cancel/claim).
+
+- id: RV-010
+  subsystem: persistence
+  category: concurrency
+  mechanism: `LruStore::fetch` does get-then-put without an atomic slot; two
+    concurrent misses both touch the inner store and the second put can
+    overwrite an invalidation that happened between its get-miss and put.
+  detection: `[F2P]` cache concurrency test hammering get with writes in
+    flight and asserting no stale post-invalidation warm entry.
+  fix: hold the cache lock across fetch, or re-check the slot under the lock
+    after the inner read.
+  independence: cache slot race; distinct from RV-013/014 (staleness logic).
+
+- id: RV-011
+  subsystem: events
+  category: concurrency
+  mechanism: `Watcher::poll` scans a run snapshot and transitions proceed
+    concurrently; a single terminal can be observed twice across polls,
+    producing duplicate deliveries (the sha256 delivery id is documented as
+    a consumer dedup key, but no sink deduplicates).
+  detection: `[F2P]` watcher test toggling a run's status mid-poll and
+    asserting exactly one delivery per terminal.
+  fix: idempotence guard in the dispatch path (remember last observed
+    terminal by (run, kind)).
+  independence: event dedup; distinct from RV-012 (clock drift).
+
+- id: RV-012
+  subsystem: scheduler
+  category: concurrency
+  mechanism: claim-path `now_ms` comes from `SystemClock` while the store's
+    internal lease bookkeeping assumes monotonicity across all callers; a
+    ManualClock test harness and the system clock drift make lease expiry
+    judgments wrong under clock-mode switches.
+  detection: `[F2P]` test alternating SystemClock/ManualClock producers and
+    asserting lease math is with respect to one monotonic source.
+  fix: single clock source owned by the scheduler, passed into every
+    timestamped store call.
+  independence: clock propagation; unrelated to RV-009/011.
+
+- id: RV-013
+  subsystem: persistence
+  category: stale_cache
+  mechanism: one read path (`get_workflow`) keys the LRU by `(tenant, name)`
+    while `submit_run`'s internal helper was refactored to key by `name`
+    only, so a warm cross-tenant entry serves the wrong definition's version
+    to a submission.
+  detection: `[F2P]` lru_store integration test submitting after a same-name
+    foreign-tenant warm and asserting the serving version is local.
+  fix: forbid name-only cache keys; add a compile-time `(TenantId, Name)`
+    tuple key.
+  independence: cache-key construction; distinct from RV-010 (slot race).
+
+- id: RV-014
+  subsystem: persistence
+  category: stale_cache
+  mechanism: `update_workflow_version` invalidates only the entry it
+    bumped; a bulk bump (migration tooling) warms the cache from an old
+    record, so `get_workflow` serves a stale version after an upgrade.
+  detection: `[P2P]` + `[F2P]` test bumping versions through the migration
+    path and asserting the served version is the bumped one.
+  fix: version-gated cache entries; invalidate on any write that bumps
+    versions, including bulk paths.
+  independence: invalidation coverage; distinct from RV-013 (key shape).
+
+- id: RV-015
+  subsystem: retry
+  category: boundary
+  mechanism: a spec file with `max_attempts: 0` passes the CLI's strict
+    parser (0 is "infinite" in one retry flavour) but the machine computes
+    `attempt < 0` nonsense on the first attempt, timing out immediately in
+    the other flavour — policy means different things per transport.
+  detection: `[F2P]` retry boundary table test for `max_attempts ∈ {0,1}`
+    asserting a single unified meaning.
+  fix: normalize 0 once at parse time to a canonical sentinel.
+  independence: retry-policy boundary; distinct from RV-003 (runtime timing).
+
+- id: RV-016
+  subsystem: scheduler
+  category: boundary
+  mechanism: `now_ms + lease_ms` is computed unchecked in the claim path; a
+    lease_ms near `i64::MAX` (operator config typo) overflows to a negative
+    deadline, instantly expiring the lease and thrashing claims.
+  detection: `[F2P]` boundary test with `lease_ms = i64::MAX` asserting the
+    deadline saturates.
+  fix: saturating_add on every deadline computation.
+  independence: integer-boundary math; distinct from RV-015 (policy meaning).
+
+- id: RV-017
+  subsystem: api
+  category: boundary
+  mechanism: `RunQuery.limit` is parsed `as usize` from the query string; an
+    operator passing `limit=-1` or huge values wraps/truncates through the
+    filter into an unhelpful empty or enormous listing.
+  detection: `[F2P]` payload boundary test asserting negative and >MAX
+    limits are rejected on the HTTP path (mirrors grpc, see RV-001).
+  fix: parse-and-reject in `into_filter` rather than truncating.
+  independence: HTTP-side boundary; RV-001 is the gRPC twin — keep both as
+    separate wire entries, or drop one and mark `dup` at review.
+
+- id: RV-018
+  subsystem: api
+  category: error_propagation
+  mechanism: HTTP `create_workflow` upserts (200/201) while gRPC maps the
+    store's already-exists conflict to `invalid_argument`, so the same
+    operator action behaves differently per surface and one path can turn a
+    benign conflict into a hard error.
+  detection: `[P2P]` cross-transport test creating the same def on both
+    surfaces and asserting conflict semantics match.
+  fix: one shared error→transport mapping table.
+  independence: cross-transport error mapping; distinct from RV-019 (run path).
+
+- id: RV-019
+  subsystem: api
+  category: error_propagation
+  mechanism: `submit_run` propagates input-validation failures via the API
+    error path that returns 500 instead of 4xx (the run input validator's
+    DomainError isn't translated), so malformed submits look like crashes.
+  detection: `[F2P]` API negative test submitting invalid input and asserting
+    a 4xx mapping.
+  fix: translate run-input DomainError on the submit path (see
+    `ApiError::from` additions).
+  independence: run-submit error translation; distinct from RV-018 (create).
+
+- id: RV-020
+  subsystem: events
+  category: serialization
+  mechanism: `EventKind` codes are derived from the status name string, but
+    the watcher keys matching on a separate `RunStatus.name`; renaming a
+    status (refactor) silently changes event codes without a compile error,
+    desyncing webhook consumers.
+  detection: `[P2P]` serialization test asserting `EventKind` codes are
+    pinned constants, plus `[F2P]` when a rename regresses delivery.
+  fix: explicit match arms returning literal codes; add a code-stability
+    table test.
+  independence: enum serialization; distinct from RV-021 (map ordering).
+
+- id: RV-021
+  subsystem: api
+  category: serialization
+  mechanism: `tags` serialize as a sorted `BTreeMap` on HTTP but the proto
+    `map<string,string>` round-trips through prost's `HashMap`, so a
+    byte-for-byte round-trip across transports is order-unstable.
+  detection: `[P2P]` proptest round-tripping tags over both transports and
+    asserting semantic (not byte) equality.
+  fix: semantic comparison in the round-trip property tests.
+  independence: transport ordering; distinct from RV-020 (enum codes).
+
+- id: RV-022
+  subsystem: api
+  category: serialization
+  mechanism: proto retry fields are `uint64` millis; a value above
+    `i64::MAX` encodes fine on the wire but parses to a saturating/bogus
+    duration in the domain, so very large configs collapse to wrong waits.
+  detection: `[P2P]` round-trip test with `base_delay_ms = u64::MAX`
+    asserting an explicit rejection, not a silent clamp.
+  fix: validate the magnitude at the converter, like the HTTP path.
+  independence: magnitude validation on wire; distinct from RV-001 (list).
+
+- id: RV-023
+  subsystem: cli
+  category: lifecycle
+  mechanism: when the gRPC listener dies at startup, `serve` prints an error
+    but keeps the scheduler thread and HTTP listener running in a
+    half-alive process that needs two SIGINTs to exit.
+  detection: `[F2P]` serve lifecycle test asserting a dead secondary listener
+    aborts the whole process promptly and nothing hangs.
+  fix: propagate grpc bind failure as a fatal serve error.
+  independence: startup failure handling; distinct from RV-024 (shutdown).
+
+- id: RV-024
+  subsystem: cli
+  category: lifecycle
+  mechanism: shutdown sets the stop flag but never cancels in-flight handler
+    contexts; a long-running `runvane.sleep` handler keeps executing past
+    SIGINT and the process lingers until the handler finishes.
+  detection: `[F2P]` shutdown test asserting in-flight handlers observe
+    cancellation within a bound after SIGINT.
+  fix: thread a cancellation token from the signal handler into request
+    contexts and the pool.
+  independence: in-flight cancellation; distinct from RV-023 (boot failure).
+
+- id: RV-025
+  subsystem: events
+  category: lifecycle
+  mechanism: the watcher poll interval is hard-wired to `reap_ms`; raising
+    reap frequency (lease churn tuning) starves or thrashes event delivery,
+    so webhooks stop firing under some schedules.
+  detection: `[F2P]` serve test changing reap_ms and asserting event
+    delivery cadence stays independent.
+  fix: separate event-poll interval config key.
+  independence: interval coupling; distinct from RV-011 (dedup).
+
+- id: RV-026
+  subsystem: config
+  category: config
+  mechanism: `RUNVANE_WORKERS=-1` from the environment parses through an
+    unguarded i64→usize cast and becomes a gigantic pool that the machine
+    "validates" as nonzero, silently consuming the host.
+  detection: `[P2P]` config precedence test asserting negative env values are
+    rejected by `validate()`.
+  fix: signed parse + range check in `apply_env_map`.
+  independence: env-range validation; distinct from RV-027 (file ghost keys).
+
+- id: RV-027
+  subsystem: config
+  category: config
+  mechanism: unknown keys at the top level of the TOML file error, but a
+    misspelled `[server]` subsection (nested serde default) is silently
+    accepted, so a typo'd field falls back to a default that looks
+    intentional.
+  detection: `[F2P]` config test asserting nested unknown-table keys fail
+    too.
+  fix: `deny_unknown_fields` on the nested config struct.
+  independence: nested-key strictness; distinct from RV-026 (env producer).
+
+- id: RV-028
+  subsystem: api
+  category: validation
+  mechanism: `validate_run_input` checks JSON shape but not size; a
+    multi-megabyte submit is accepted without a cap, letting a single
+    request balloon memory in the store and listing paths.
+  detection: `[F2P]` validation test asserting an oversized input document is
+    rejected with a clear error.
+  fix: `max_input_bytes` bound in the submit path (both transports).
+  independence: size validation; distinct from RV-029 (description clamp).
+
+- id: RV-029
+  subsystem: api
+  category: validation
+  mechanism: `description` is length-capped to 512 on the HTTP payload path
+    but the gRPC spec's description is written through unclamped, so the
+    same definition stores different record sizes per transport.
+  detection: `[F2P]` gRPC test storing a >512 description and asserting a
+    rejection identical to HTTP.
+  fix: run the shared description sanitizer in the gRPC converter.
+  independence: field-level clamp; distinct from RV-028 (input size).
+
+- id: RV-030
+  subsystem: domain
+  category: validation
+  mechanism: a task's `depends_on` may name a task that does not exist in
+    the same definition; graph validation passes (no cycle, unreferenced
+    task), so the run is submitted but never satisfies the dependency and
+    stays Queued forever.
+  detection: `[F2P]` definition validation test for dangling `depends_on`
+    references.
+  fix: references must resolve inside the definition's task set.
+  independence: reference resolution; distinct from RV-028/029.
+
+- id: RV-031
+  subsystem: events
+  category: leak
+  mechanism: `HttpSink` opens a fresh `TcpStream` per delivery with no
+    pooling or reuse; under sustained hook traffic on a slow receiver,
+    TIME_WAIT sockets and goroutine-free-but-OS-held descriptors accumulate.
+  detection: `[P2P]` + `[F2P]` delivery-loop test asserting socket descriptors
+    stay bounded across many deliveries.
+  fix: reuse one connection per host or bound the sink with backpressure.
+  independence: transport reuse; distinct from RV-032 (heap growth).
+
+- id: RV-032
+  subsystem: retry
+  category: leak
+  mechanism: the per-run retry history grows without a cap across many
+    attempts (each `release` records a fresh entry), so pathological
+    backoff-or-flapping runs accumulate memory proportional to attempts.
+  detection: `[F2P]` retry test asserting history size is bounded after a
+    long flapping run.
+  fix: cap retained history and evict oldest attempts.
+  independence: bounded-history; distinct from RV-031 (socket reuse).
+
+- id: RV-033
+  subsystem: persistence
+  category: leak
+  mechanism: `MemoryStore` never evicts terminal runs and deletion is only
+    reachable through a maintenance path that is not called by default; a
+    long-lived `--memory` server with retention disabled grows without
+    bound, and the dashboard only masks it (top-N list).
+  detection: `[P2P]` retention test asserting terminal runs older than the
+    retention window are purged when the worker runs.
+  fix: enable the retention maintenance worker in `serve` with the config
+    key.
+  independence: retention/eviction; distinct from RV-031/032 (transport and
+    retry history).
 
 ## Status legend
 

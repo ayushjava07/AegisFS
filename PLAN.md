@@ -88,6 +88,42 @@ prompt's own "different language" swap table.
 - Phase 8 adds the `[F2P]`/`[P2P]` markers to the intended tests now, while
   intent is fresh, even though defects are not yet injected.
 
+### Required-subsystem coverage (16-item brief)
+
+Cross-check of the enhanced prompt's mandated subsystem list against the
+in-repo tree at Phase 7/8 boundary (`bf9a734`):
+
+| # | Subsystem | Status |
+|---|---|---|
+| 1 | workflow/task defs + state machine | present |
+| 2 | scheduler + worker pool | present |
+| 3 | persistence (in-memory + sqlite) | present |
+| 4 | in-memory cache w/ invalidation | present (`persistence::lru_store`) |
+| 5 | HTTP API, versioned types | present |
+| 6 | gRPC mirror | present |
+| 7 | CLI | present |
+| 8 | plugin interface + >=2 first-party plugins | present (`echo`, `fail`) |
+| 9 | retry/backoff/timeout + cancellation | present (Phase 8 adds in-flight cancel) |
+| 10 | webhook/event dispatch | present |
+| 11 | metrics + `/debug` endpoint | present |
+| 12 | config env/file/flags precedence | present |
+| 13 | auth middleware + RBAC on admin actions | **gap: config plumbed, not enforced** |
+| 14 | background maintenance (expire old runs) | **gap: lease reap only, no retention** |
+| 15 | read-only HTML dashboard | present |
+| 16 | schema migrations + fixtures | present |
+
+Phase 8 ships the two gaps (auth enforcement + run-retention worker), adds
+the `[F2P]`/`[P2P]` markers, and scaffolds the `fuzz/` crate (Deviation 4)
+with one target per hand-written parser/decoder: priority parse, run-filter
+parse, event-filter rule parse, CLI spec-file mapping, and tags JSON.
+Mutation scoring (`cargo-mutants`) over state/retry/validation is recorded
+at Phase 9.
+
+### Required-subsystem coverage (16-item brief) — gap closure log
+
+- 2026-: auth enforcement and retention worker specified above; injected
+  after this line is edited by their feature commits.
+
 ### Category table (with Rust detection)
 
 | Category | Target | Detection in Rust |
