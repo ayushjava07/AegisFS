@@ -132,6 +132,22 @@ pub trait Store: Send + Sync {
     /// Un-leases every entry whose lease has expired; returns how many.
     fn recover_expired_leases(&self, now_ms: i64) -> Result<usize, StorageError>;
 
+    /// Deletes terminal runs whose `finished_at` is at or before `before_ms`,
+    /// returning how many were removed. Runs still in flight are never
+    /// touched. Implemented over the generic scan/delete primitives so every
+    /// backend shares the same two-pass semantics.
+    fn reap_finished_runs(&self, before_ms: i64) -> Result<usize, StorageError> {
+        let runs = self.list_runs(&RunFilter::default())?;
+        let mut reaped = 0;
+        for run in runs {
+            if run.finished_at_ms.is_some_and(|f| f <= before_ms) {
+                self.delete_run(&run.id.clone())?;
+                reaped += 1;
+            }
+        }
+        Ok(reaped)
+    }
+
     /// Number of live queue entries (for gauges).
     fn len_queue(&self) -> usize;
 }
@@ -258,6 +274,78 @@ mod tests {
     // Store backends must be thread-safe handles.
     #[allow(dead_code)]
     fn _typeassert_store_is_send_sync<S: Send + Sync>() {}
+
+    /// Retention deletes only terminal runs older than the cutoff and never
+    /// touches in-flight or fresh finished runs.
+    #[test]
+    fn retention_reaps_only_stale_terminal_runs() {
+        let store = new_memory();
+        let mut stale = crate::persistence::fixtures::run(
+            "rn_stale_r",
+            "acme",
+            "nightly",
+            RunStatus::Succeeded,
+            10,
+        );
+        stale.finished_at_ms = Some(100);
+        store.put_run(&stale).unwrap();
+
+        let mut fresh = crate::persistence::fixtures::run(
+            "rn_fresh_f",
+            "acme",
+            "nightly",
+            RunStatus::Succeeded,
+            900,
+        );
+        fresh.finished_at_ms = Some(1_000);
+        store.put_run(&fresh).unwrap();
+
+        let mut in_flight = crate::persistence::fixtures::run(
+            "rn_live_i",
+            "acme",
+            "nightly",
+            RunStatus::Running,
+            950,
+        );
+        in_flight.finished_at_ms = None;
+        store.put_run(&in_flight).unwrap();
+
+        let reaped = store.reap_finished_runs(500).unwrap();
+        assert_eq!(reaped, 1, "only the run finished before the cutoff goes");
+        assert!(matches!(
+            store.get_run(&stale.id),
+            Err(StorageError::NotFound(_))
+        ));
+        assert!(store.get_run(&fresh.id).is_ok(), "fresh terminal kept");
+        assert!(store.get_run(&in_flight.id).is_ok(), "in-flight kept");
+        assert_eq!(
+            store
+                .count_runs(&crate::persistence::RunFilter::default())
+                .unwrap(),
+            2
+        );
+    }
+
+    #[test]
+    fn retention_with_no_finished_runs_is_a_no_op() {
+        let store = new_memory();
+        store
+            .put_run(&crate::persistence::fixtures::run(
+                "rn_queued_q",
+                "acme",
+                "nightly",
+                RunStatus::Queued,
+                1,
+            ))
+            .unwrap();
+        assert_eq!(store.reap_finished_runs(100_000).unwrap(), 0);
+        assert_eq!(
+            store
+                .count_runs(&crate::persistence::RunFilter::default())
+                .unwrap(),
+            1
+        );
+    }
     #[allow(dead_code)]
     fn _pin_backends() {
         _typeassert_store_is_send_sync::<MemoryStore>();

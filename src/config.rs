@@ -53,6 +53,9 @@ pub struct Config {
     pub lease_ms: i64,
     /// Interval between lease-reap maintenance passes.
     pub reap_interval_ms: i64,
+    /// Keep terminal runs at most this long (milliseconds) before the
+    /// maintenance pass deletes them. `None` keeps finished runs forever.
+    pub retention_ms: Option<u64>,
     /// Server default page size for run queries.
     pub default_list_limit: usize,
 }
@@ -70,6 +73,7 @@ impl Default for Config {
             admin_token: None,
             lease_ms: DEFAULT_LEASE_MS,
             reap_interval_ms: DEFAULT_REAP_MS,
+            retention_ms: None,
             default_list_limit: DEFAULT_LIST_LIMIT,
         }
     }
@@ -90,6 +94,7 @@ struct ConfigFile {
     admin_token: Option<String>,
     lease_ms: Option<i64>,
     reap_interval_ms: Option<i64>,
+    retention_ms: Option<u64>,
     default_list_limit: Option<usize>,
     /// Unrecognized keys are collected here and turned into errors so a typo
     /// fails loudly instead of silently serving defaults.
@@ -152,6 +157,9 @@ impl Config {
         }
         if let Some(v) = file.reap_interval_ms {
             cfg.reap_interval_ms = v;
+        }
+        if let Some(v) = file.retention_ms {
+            cfg.retention_ms = Some(v);
         }
         if let Some(v) = file.default_list_limit {
             cfg.default_list_limit = v;
@@ -220,6 +228,10 @@ impl Config {
             self.reap_interval_ms = parse_required("RUNVANE_REAP_MS", &v)?;
             applied.insert("RUNVANE_REAP_MS", v);
         }
+        if let Some(v) = env.get("RUNVANE_RETENTION_MS").cloned() {
+            self.retention_ms = Some(parse_required("RUNVANE_RETENTION_MS", &v)?);
+            applied.insert("RUNVANE_RETENTION_MS", v);
+        }
         tracing::debug!(overrides = ?applied, "applied runvane environment overrides");
         self.validate()?;
         Ok(())
@@ -241,6 +253,11 @@ impl Config {
         if self.reap_interval_ms <= 0 {
             return Err(RunvaneError::Config(
                 "reap_interval_ms must be a positive duration".into(),
+            ));
+        }
+        if self.retention_ms == Some(0) {
+            return Err(RunvaneError::Config(
+                "retention_ms must be a positive duration".into(),
             ));
         }
         Ok(())
@@ -332,6 +349,24 @@ mod tests {
         let mut bad = Config::defaults();
         bad.reap_interval_ms = -5;
         assert!(bad.validate().is_err());
+    }
+
+    #[test]
+    fn retention_ms_overrides_and_validates() {
+        let mut env = BTreeMap::new();
+        env.insert("RUNVANE_RETENTION_MS".to_owned(), "60000".to_owned());
+        let mut cfg = Config::defaults();
+        cfg.apply_env_map(&env).unwrap();
+        assert_eq!(cfg.retention_ms, Some(60_000));
+
+        let mut env = BTreeMap::new();
+        env.insert("RUNVANE_RETENTION_MS".to_owned(), "0".to_owned());
+        let mut cfg = Config::defaults();
+        assert!(cfg.apply_env_map(&env).is_err(), "0 retention rejected");
+
+        let cfg = Config::from_toml_str("retention_ms = 1234\n").unwrap();
+        assert_eq!(cfg.retention_ms, Some(1234));
+        assert_eq!(Config::defaults().retention_ms, None);
     }
 
     #[test]

@@ -31,6 +31,8 @@ pub struct Metrics {
     pub event_deliveries_total: AtomicU64,
     /// Delivery attempts that completed without a sink error.
     pub event_deliveries_ok_total: AtomicU64,
+    /// Finished runs deleted by the retention maintenance pass.
+    pub reaped_runs_total: AtomicU64,
 }
 
 impl Metrics {
@@ -50,6 +52,7 @@ impl Metrics {
             watch_terminals_total: self.watch_terminals_total.load(Ordering::Relaxed),
             event_deliveries_total: self.event_deliveries_total.load(Ordering::Relaxed),
             event_deliveries_ok_total: self.event_deliveries_ok_total.load(Ordering::Relaxed),
+            reaped_runs_total: self.reaped_runs_total.load(Ordering::Relaxed),
         }
     }
 }
@@ -73,6 +76,8 @@ pub struct MetricsSnapshot {
     pub event_deliveries_total: u64,
     /// Deliveries that completed without a sink error.
     pub event_deliveries_ok_total: u64,
+    /// Finished runs deleted by the retention maintenance pass.
+    pub reaped_runs_total: u64,
 }
 
 /// Convenience constructor for the shared arc used by handlers and threads.

@@ -61,6 +61,11 @@ pub struct ServeArgs {
     /// Lease-reap maintenance interval in milliseconds.
     #[arg(long, value_name = "MS")]
     pub reap_ms: Option<i64>,
+
+    /// Delete terminal runs older than this many milliseconds; 0/absent keeps
+    /// finished runs forever.
+    #[arg(long, value_name = "MS")]
+    pub retention_ms: Option<u64>,
 }
 
 /// Deterministic seed for scheduler RNGs so a clean boot produces
@@ -111,6 +116,9 @@ fn apply_config_layers(
     }
     if let Some(v) = args.reap_ms {
         cfg.reap_interval_ms = v;
+    }
+    if let Some(v) = args.retention_ms {
+        cfg.retention_ms = Some(v);
     }
     cfg.validate()?;
     Ok(cfg.clone())
@@ -183,6 +191,7 @@ pub async fn serve(args: &ServeArgs) -> Result<(), RunvaneError> {
             workers: cfg.workers,
             lease_ms: cfg.lease_ms,
             reap_ms: cfg.reap_interval_ms,
+            retention_ms: cfg.retention_ms,
             store: Arc::clone(&store),
             registry: Arc::clone(&registry),
             clock: Arc::clone(&clock),
@@ -233,6 +242,7 @@ struct SchedulerArgs {
     workers: usize,
     lease_ms: i64,
     reap_ms: i64,
+    retention_ms: Option<u64>,
     store: Arc<dyn crate::persistence::Store>,
     registry: Arc<Registry>,
     clock: Arc<dyn Clock>,
@@ -248,6 +258,7 @@ fn spawn_scheduler_thread(args: SchedulerArgs) -> Result<(), RunvaneError> {
         workers,
         lease_ms,
         reap_ms,
+        retention_ms,
         store,
         registry,
         clock,
@@ -280,6 +291,22 @@ fn spawn_scheduler_thread(args: SchedulerArgs) -> Result<(), RunvaneError> {
             let stats = dispatcher.step();
             metrics.dispatches_total.fetch_add(1, Ordering::Relaxed);
             let reap = reap_expired_leases(store.as_ref(), clock.as_ref());
+            let reaped = match retention_ms {
+                Some(window) => {
+                    let cutoff = clock.now_ms() - window as i64;
+                    match store.reap_finished_runs(cutoff) {
+                        Ok(n) => n,
+                        Err(err) => {
+                            tracing::warn!(%err, "retention sweep failed, deferring");
+                            0
+                        }
+                    }
+                }
+                None => 0,
+            };
+            metrics
+                .reaped_runs_total
+                .fetch_add(reaped as u64, Ordering::Relaxed);
             let watch = watcher.poll(store.as_ref(), clock.now_ms());
             metrics
                 .watch_terminals_total
@@ -294,6 +321,7 @@ fn spawn_scheduler_thread(args: SchedulerArgs) -> Result<(), RunvaneError> {
                 scanned = stats.scanned,
                 claimed = stats.claimed,
                 reap_stats = ?reap,
+                reaped,
                 events = ?watch,
             );
             std::thread::sleep(poll);
