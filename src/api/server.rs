@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
+use axum::middleware;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -41,21 +42,83 @@ pub struct AppState {
     pub boot_ms: i64,
     /// Process-level metric counters for the debug page.
     pub metrics: Arc<crate::telemetry::Metrics>,
+    /// API-token authentication and RBAC settings.
+    pub auth: crate::auth::AuthConfig,
 }
 
 /// Builds the v1 router wired to `state`.
 pub fn build_router(state: Arc<AppState>) -> Router {
-    Router::new()
+    // Authorization middleware split by router so the open dashboard/health
+    // routes stay reachable without a token while everything else is gated.
+    let open = Router::new()
         .route("/", get(dashboard))
-        .route("/v1/health", get(health))
+        .route("/v1/health", get(health));
+
+    let operator = Router::new()
+        .route("/v1/debug/metrics", get(metrics))
         .route("/v1/workflows", get(list_workflows).post(create_workflow))
         .route("/v1/workflows/:tenant/:name", get(get_workflow))
         .route("/v1/workflows/:tenant/:name/runs", post(submit_run))
         .route("/v1/runs", get(list_runs))
         .route("/v1/runs/:id", get(get_run))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            |State(state): State<Arc<AppState>>,
+             req: axum::extract::Request,
+             next: axum::middleware::Next| async move {
+                let presented = req
+                    .headers()
+                    .get("x-api-token")
+                    .and_then(|v| v.to_str().ok());
+                match check_auth(&state, presented, crate::auth::Level::Operator) {
+                    Ok(()) => next.run(req).await,
+                    Err(err) => err.into_response(),
+                }
+            },
+        ));
+
+    let admin = Router::new()
         .route("/v1/runs/:id/cancel", post(cancel_run))
-        .route("/v1/debug/metrics", get(metrics))
-        .with_state(state)
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            |State(state): State<Arc<AppState>>,
+             req: axum::extract::Request,
+             next: axum::middleware::Next| async move {
+                let presented = req
+                    .headers()
+                    .get("x-api-token")
+                    .and_then(|v| v.to_str().ok());
+                match check_auth(&state, presented, crate::auth::Level::Admin) {
+                    Ok(()) => next.run(req).await,
+                    Err(err) => err.into_response(),
+                }
+            },
+        ));
+
+    open.merge(operator).merge(admin).with_state(state)
+}
+
+/// Decides whether a request's presented token clears `level`.
+///
+/// With no token configured the surface is open. With auth enabled a wrong
+/// or missing token is `Unauthorized`; a token valid but too weak for the
+/// admin tier is `Forbidden`.
+fn check_auth(
+    state: &AppState,
+    presented: Option<&str>,
+    level: crate::auth::Level,
+) -> Result<(), ApiError> {
+    if state.auth.authorized(presented, level) {
+        return Ok(());
+    }
+    if level == crate::auth::Level::Admin && presented.is_some() {
+        return Err(ApiError::forbidden(
+            "token valid for the operator tier is not an admin token",
+        ));
+    }
+    Err(ApiError::unauthorized(
+        "missing or invalid api token (header: x-api-token)",
+    ))
 }
 
 /// `GET /` — a minimal read-only overview rendered inline (no assets).
@@ -322,6 +385,22 @@ mod tests {
             clock: Arc::new(clock),
             boot_ms: 1_720_000_000_000,
             metrics: crate::telemetry::shared(),
+            auth: crate::auth::AuthConfig::default(),
+        })
+    }
+
+    fn test_state_with_auth(operator: &str, admin: Option<&str>) -> Arc<AppState> {
+        let clock = ManualClock::at(1_720_000_000_000);
+        Arc::new(AppState {
+            store: Arc::new(MemoryStore::new()),
+            registry: Arc::new(Registry::new()),
+            clock: Arc::new(clock),
+            boot_ms: 1_720_000_000_000,
+            metrics: crate::telemetry::shared(),
+            auth: crate::auth::AuthConfig {
+                operator_token: Some(zeroize::Zeroizing::new(operator.to_owned())),
+                admin_token: admin.map(|a| zeroize::Zeroizing::new(a.to_owned())),
+            },
         })
     }
 
@@ -821,5 +900,108 @@ mod tests {
         )
         .await;
         assert_eq!(res.status(), HttpStatus::BAD_REQUEST);
+    }
+
+    async fn authed(app: &Router, method: &str, uri: &str, token: Option<&str>) -> Response {
+        let mut builder = Request::builder().method(method).uri(uri);
+        if let Some(token) = token {
+            builder = builder.header("x-api-token", token);
+        }
+        send(app, builder.body(Body::empty()).unwrap()).await
+    }
+
+    #[tokio::test]
+    async fn auth_requires_an_operator_token_on_guarded_routes() {
+        let app = build_router(test_state_with_auth("op-secret", None));
+
+        let res = authed(&app, "GET", "/v1/workflows", None).await;
+        assert_eq!(res.status(), HttpStatus::UNAUTHORIZED);
+
+        let res = authed(&app, "GET", "/v1/workflows", Some("wrong")).await;
+        assert_eq!(res.status(), HttpStatus::UNAUTHORIZED);
+
+        let res = authed(&app, "GET", "/v1/workflows", Some("op-secret")).await;
+        assert_eq!(res.status(), HttpStatus::OK);
+
+        let res = authed(&app, "GET", "/v1/debug/metrics", Some("op-secret")).await;
+        assert_eq!(res.status(), HttpStatus::OK);
+    }
+
+    #[tokio::test]
+    async fn auth_keeps_dashboard_and_health_open() {
+        let app = build_router(test_state_with_auth("op-secret", None));
+
+        let res = authed(&app, "GET", "/v1/health", None).await;
+        assert_eq!(res.status(), HttpStatus::OK);
+
+        let res = authed(&app, "GET", "/", None).await;
+        assert_eq!(res.status(), HttpStatus::OK);
+    }
+
+    #[tokio::test]
+    async fn auth_demands_admin_tier_for_cancel() {
+        let app = build_router(test_state_with_auth("op-secret", Some("adm-secret")));
+
+        let res = authed(&app, "POST", "/v1/runs/rn_nope123/cancel", None).await;
+        assert_eq!(res.status(), HttpStatus::UNAUTHORIZED);
+
+        let res = authed(
+            &app,
+            "POST",
+            "/v1/runs/rn_nope123/cancel",
+            Some("op-secret"),
+        )
+        .await;
+        assert_eq!(
+            res.status(),
+            HttpStatus::FORBIDDEN,
+            "operator secret is not admin"
+        );
+
+        let res = authed(
+            &app,
+            "POST",
+            "/v1/runs/rn_nope123/cancel",
+            Some("adm-secret"),
+        )
+        .await;
+        assert_eq!(
+            res.status(),
+            HttpStatus::NOT_FOUND,
+            "auth passed, handler 404s on the bogus run"
+        );
+
+        let res = authed(&app, "GET", "/v1/workflows", Some("adm-secret")).await;
+        assert_eq!(
+            res.status(),
+            HttpStatus::UNAUTHORIZED,
+            "admin secret does not unlock operator routes"
+        );
+    }
+
+    #[tokio::test]
+    async fn auth_operator_secret_falls_back_to_admin_without_admin_token() {
+        let app = build_router(test_state_with_auth("op-secret", None));
+        let res = authed(
+            &app,
+            "POST",
+            "/v1/runs/rn_nope123/cancel",
+            Some("op-secret"),
+        )
+        .await;
+        assert_eq!(
+            res.status(),
+            HttpStatus::NOT_FOUND,
+            "auth passed, handler 404s on the bogus run"
+        );
+    }
+
+    #[tokio::test]
+    async fn auth_open_surface_ignores_bad_tokens() {
+        let app = build_router(test_state());
+        let res = authed(&app, "GET", "/v1/workflows", Some("trash")).await;
+        assert_eq!(res.status(), HttpStatus::OK);
+        let res = authed(&app, "POST", "/v1/runs/rn_nope123/cancel", None).await;
+        assert_eq!(res.status(), HttpStatus::NOT_FOUND);
     }
 }

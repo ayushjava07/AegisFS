@@ -60,6 +60,26 @@ impl GrpcService {
     pub fn into_server(self) -> proto::runvane_server::RunvaneServer<Self> {
         proto::runvane_server::RunvaneServer::new(self)
     }
+
+    /// Enforces API-token auth for `level`, mirroring the HTTP middleware.
+    fn require(
+        &self,
+        meta: &tonic::metadata::MetadataMap,
+        level: crate::auth::Level,
+    ) -> Result<(), Status> {
+        let presented = meta.get("x-api-token").and_then(|v| v.to_str().ok());
+        if self.state.auth.authorized(presented, level) {
+            return Ok(());
+        }
+        if level == crate::auth::Level::Admin && presented.is_some() {
+            return Err(Status::permission_denied(
+                "token valid for the operator tier is not an admin token",
+            ));
+        }
+        Err(Status::unauthenticated(
+            "missing or invalid api token (metadata: x-api-token)",
+        ))
+    }
 }
 
 /// Maps any error that flattens into [`ApiError`] onto a tonic status with a
@@ -74,6 +94,8 @@ where
 fn to_tonic_api(err: ApiError) -> Status {
     let code = match err.http_status() {
         400 => tonic::Code::InvalidArgument,
+        401 => tonic::Code::Unauthenticated,
+        403 => tonic::Code::PermissionDenied,
         404 => tonic::Code::NotFound,
         409 => tonic::Code::FailedPrecondition,
         502 => tonic::Code::Unavailable,
@@ -240,6 +262,7 @@ impl Runvane for GrpcService {
         &self,
         request: Request<ProtoWorkflowSpec>,
     ) -> Result<Response<WorkflowResponse>, Status> {
+        self.require(request.metadata(), crate::auth::Level::Operator)?;
         let wire = request.into_inner();
         let spec = WorkflowSpec {
             tenant: wire.tenant,
@@ -269,6 +292,7 @@ impl Runvane for GrpcService {
         &self,
         request: Request<ListWorkflowsRequest>,
     ) -> Result<Response<ListWorkflowsResponse>, Status> {
+        self.require(request.metadata(), crate::auth::Level::Operator)?;
         let tenant = request.into_inner().tenant;
         let recs = self.state.store.list_workflows().map_err(to_tonic)?;
         let mut definition_json = Vec::new();
@@ -286,6 +310,7 @@ impl Runvane for GrpcService {
         &self,
         request: Request<GetWorkflowRequest>,
     ) -> Result<Response<WorkflowResponse>, Status> {
+        self.require(request.metadata(), crate::auth::Level::Operator)?;
         let req = request.into_inner();
         let rec = self
             .state
@@ -301,6 +326,7 @@ impl Runvane for GrpcService {
         &self,
         request: Request<SubmitRunRequest>,
     ) -> Result<Response<RunResponse>, Status> {
+        self.require(request.metadata(), crate::auth::Level::Operator)?;
         let req = request.into_inner();
         let rec = self
             .state
@@ -356,6 +382,7 @@ impl Runvane for GrpcService {
         &self,
         request: Request<ListRunsRequest>,
     ) -> Result<Response<ListRunsResponse>, Status> {
+        self.require(request.metadata(), crate::auth::Level::Operator)?;
         let req = request.into_inner();
         let status = match req.status.as_str() {
             "" => None,
@@ -383,6 +410,7 @@ impl Runvane for GrpcService {
         &self,
         request: Request<GetRunRequest>,
     ) -> Result<Response<RunResponse>, Status> {
+        self.require(request.metadata(), crate::auth::Level::Operator)?;
         let run_id = RunId::parse(&request.into_inner().id).map_err(|e| {
             to_tonic(crate::api::error::ApiError::from(
                 crate::error::RunvaneError::from(e),
@@ -397,6 +425,7 @@ impl Runvane for GrpcService {
         &self,
         request: Request<CancelRunRequest>,
     ) -> Result<Response<RunResponse>, Status> {
+        self.require(request.metadata(), crate::auth::Level::Admin)?;
         let run_id = RunId::parse(&request.into_inner().id).map_err(|e| {
             to_tonic(crate::api::error::ApiError::from(
                 crate::error::RunvaneError::from(e),
@@ -445,18 +474,23 @@ mod tests {
             clock: Arc::new(ManualClock::at(1_720_000_000_000)),
             boot_ms: 1_720_000_000_000,
             metrics: crate::telemetry::shared(),
+            auth: crate::auth::AuthConfig::default(),
         })
     }
 
     /// Binds a fresh loopback port, serves the service until the test is done.
     async fn spawn_server() -> (String, tokio::task::JoinHandle<()>) {
+        spawn_server_with(test_state()).await
+    }
+
+    async fn spawn_server_with(state: Arc<AppState>) -> (String, tokio::task::JoinHandle<()>) {
         // Learn an ephemeral port, then hand it to tonic's own bind. The
         // socket address is `Copy`, so no borrow leaks into the async task.
         let probe = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = probe.local_addr().unwrap().port();
         drop(probe);
         let socket: std::net::SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
-        let service = GrpcService::new(test_state()).into_server();
+        let service = GrpcService::new(state).into_server();
         let handle = tokio::spawn(async move {
             Server::builder()
                 .add_service(service)
@@ -709,5 +743,85 @@ mod tests {
         let state = test_state();
         let _http = build_router(state.clone());
         let _grpc = GrpcService::new(state).into_server();
+    }
+
+    fn authed_state(operator: &str, admin: Option<&str>) -> Arc<AppState> {
+        Arc::new(AppState {
+            store: Arc::new(MemoryStore::new()),
+            registry: Arc::new(Registry::new()),
+            clock: Arc::new(ManualClock::at(1_720_000_000_000)),
+            boot_ms: 1_720_000_000_000,
+            metrics: crate::telemetry::shared(),
+            auth: crate::auth::AuthConfig::from_config(
+                Some(operator.to_owned()),
+                admin.map(str::to_owned),
+            ),
+        })
+    }
+
+    fn with_token<T>(t: T, token: &str) -> tonic::Request<T> {
+        let mut req: tonic::Request<T> = tonic::Request::new(t);
+        req.metadata_mut()
+            .insert("x-api-token", token.parse().unwrap());
+        req
+    }
+
+    #[tokio::test]
+    async fn grpc_auth_enforced_per_level() {
+        let (addr, handle) = spawn_server_with(authed_state("op-secret", Some("adm-secret"))).await;
+        let mut client = connect(&addr).await;
+
+        let err = client
+            .list_workflows(wire::ListWorkflowsRequest::default())
+            .await
+            .unwrap_err();
+        assert_eq!(err.code(), tonic::Code::Unauthenticated);
+
+        let err = client
+            .list_workflows(with_token(wire::ListWorkflowsRequest::default(), "wrong"))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code(), tonic::Code::Unauthenticated);
+
+        let ok = client
+            .list_workflows(with_token(
+                wire::ListWorkflowsRequest::default(),
+                "op-secret",
+            ))
+            .await
+            .unwrap();
+        assert!(ok.into_inner().definition_json.is_empty());
+
+        let err = client
+            .cancel_run(with_token(
+                wire::CancelRunRequest {
+                    id: "rn_x".to_owned(),
+                },
+                "op-secret",
+            ))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.code(),
+            tonic::Code::PermissionDenied,
+            "operator is not admin"
+        );
+
+        let err = client
+            .cancel_run(with_token(
+                wire::CancelRunRequest {
+                    id: "rn_nope123".to_owned(),
+                },
+                "adm-secret",
+            ))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.code(),
+            tonic::Code::NotFound,
+            "auth passed, absent run is not found"
+        );
+
+        handle.abort();
     }
 }

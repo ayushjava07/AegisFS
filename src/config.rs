@@ -46,6 +46,9 @@ pub struct Config {
     pub log_filter: String,
     /// Optional bearer token enforced on `/v1` routes.
     pub auth_token: Option<String>,
+    /// Optional separate token for admin actions (run cancellation). When
+    /// absent, the operator token also authorizes admin actions.
+    pub admin_token: Option<String>,
     /// Queue lease length for claiming workers.
     pub lease_ms: i64,
     /// Interval between lease-reap maintenance passes.
@@ -64,6 +67,7 @@ impl Default for Config {
             sqlite_path: None,
             log_filter: "info".to_owned(),
             auth_token: None,
+            admin_token: None,
             lease_ms: DEFAULT_LEASE_MS,
             reap_interval_ms: DEFAULT_REAP_MS,
             default_list_limit: DEFAULT_LIST_LIMIT,
@@ -83,6 +87,7 @@ struct ConfigFile {
     sqlite_path: Option<String>,
     log_filter: Option<String>,
     auth_token: Option<String>,
+    admin_token: Option<String>,
     lease_ms: Option<i64>,
     reap_interval_ms: Option<i64>,
     default_list_limit: Option<usize>,
@@ -138,6 +143,9 @@ impl Config {
         }
         if let Some(v) = file.auth_token {
             cfg.auth_token = Some(v);
+        }
+        if let Some(v) = file.admin_token {
+            cfg.admin_token = Some(v);
         }
         if let Some(v) = file.lease_ms {
             cfg.lease_ms = v;
@@ -199,6 +207,10 @@ impl Config {
         if let Some(v) = env.get("RUNVANE_AUTH_TOKEN").cloned() {
             self.auth_token = Some(v.clone());
             applied.insert("RUNVANE_AUTH_TOKEN", v);
+        }
+        if let Some(v) = env.get("RUNVANE_ADMIN_TOKEN").cloned() {
+            self.admin_token = Some(v.clone());
+            applied.insert("RUNVANE_ADMIN_TOKEN", v);
         }
         if let Some(v) = env.get("RUNVANE_LEASE_MS").cloned() {
             self.lease_ms = parse_required("RUNVANE_LEASE_MS", &v)?;

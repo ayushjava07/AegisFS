@@ -570,6 +570,7 @@ mod tests {
             clock: std::sync::Arc::new(crate::clock::ManualClock::at(1_720_000_000_000)),
             boot_ms: 1_720_000_000_000,
             metrics: crate::telemetry::shared(),
+            auth: crate::auth::AuthConfig::default(),
         });
         let svc = crate::api::GrpcService::new(state).into_server();
         let handle = tokio::spawn(async move {

@@ -49,6 +49,7 @@ pub mod scheduler;
 
 /// HTTP and gRPC API: routers, payloads, and error mapping.
 pub mod api;
+pub mod auth;
 
 /// Server configuration: defaults, TOML file layer, environment overrides.
 pub mod config;

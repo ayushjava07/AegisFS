@@ -70,6 +70,16 @@ impl ApiError {
         Self::new(StatusCode::CONFLICT, "conflict", message)
     }
 
+    /// A 401 missing/invalid credential.
+    pub fn unauthorized(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::UNAUTHORIZED, "unauthorized", message)
+    }
+
+    /// A 403 credential valid but insufficient for the action.
+    pub fn forbidden(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::FORBIDDEN, "forbidden", message)
+    }
+
     /// A 500 internal failure.
     pub fn internal(message: impl Into<String>) -> Self {
         Self::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", message)

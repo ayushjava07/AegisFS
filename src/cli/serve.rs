@@ -160,6 +160,7 @@ pub async fn serve(args: &ServeArgs) -> Result<(), RunvaneError> {
         clock: Arc::clone(&clock),
         boot_ms,
         metrics: crate::telemetry::shared(),
+        auth: crate::auth::AuthConfig::from_config(cfg.auth_token.clone(), cfg.admin_token.clone()),
     });
     let router = build_router(Arc::clone(&state));
     let grpc_service = GrpcService::new(Arc::clone(&state)).into_server();
