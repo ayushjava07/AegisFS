@@ -5,8 +5,8 @@ use sha2::{Digest, Sha256};
 use xxhash_rust::xxh3;
 
 use crate::core::error::{AegisError, AegisResult};
-use crate::core::traits::Hasher;
 use crate::core::id::HashValue;
+use crate::core::traits::Hasher;
 
 /// SHA256 hasher implementing the Hasher trait.
 #[derive(Default, Clone, Debug)]
@@ -107,7 +107,10 @@ pub struct HashStream<R: Read> {
 
 impl<R: Read> HashStream<R> {
     pub fn new(inner: R) -> Self {
-        Self { inner, hasher: Sha256::new() }
+        Self {
+            inner,
+            hasher: Sha256::new(),
+        }
     }
 
     /// Finalize the hash computation and return the result.
@@ -150,7 +153,12 @@ pub struct ChecksummedReader<R: Read> {
 
 impl<R: Read> ChecksummedReader<R> {
     pub fn new(inner: R, expected: HashValue) -> Self {
-        Self { inner, hasher: Sha256::new(), expected, verified: false }
+        Self {
+            inner,
+            hasher: Sha256::new(),
+            expected,
+            verified: false,
+        }
     }
 
     /// Finalize the hash computation and compare it against the expected
@@ -205,7 +213,11 @@ pub struct ChecksummedWriter<W: Write> {
 
 impl<W: Write> ChecksummedWriter<W> {
     pub fn new(inner: W) -> Self {
-        Self { inner, hasher: Sha256::new(), computed: None }
+        Self {
+            inner,
+            hasher: Sha256::new(),
+            computed: None,
+        }
     }
 
     /// Flush the inner writer, finalize the hash, and store the result.
@@ -263,7 +275,10 @@ pub struct CombinedHasher {
 
 impl CombinedHasher {
     pub fn new() -> Self {
-        Self { sha256: Sha256::new(), xxh3: xxh3::Xxh3::new() }
+        Self {
+            sha256: Sha256::new(),
+            xxh3: xxh3::Xxh3::new(),
+        }
     }
 
     /// Feed data into both internal hashers.
@@ -336,15 +351,11 @@ mod tests {
 
     // ---- known test vectors ------------------------------------------------
 
-    const SHA256_EMPTY: &str =
-        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-    const SHA256_ABC: &str =
-        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+    const SHA256_EMPTY: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    const SHA256_ABC: &str = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
 
-    const BLAKE3_EMPTY: &str =
-        "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262";
-    const BLAKE3_ABC: &str =
-        "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85";
+    const BLAKE3_EMPTY: &str = "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262";
+    const BLAKE3_ABC: &str = "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85";
 
     fn hex_to_hash(hex: &str) -> HashValue {
         HashValue::from_str(hex).unwrap()
@@ -369,7 +380,7 @@ mod tests {
         let hasher = Xxh3Hasher;
         let expected_empty = hasher.hash(b""); // computed – xxhash has no
         let expected_abc = hasher.hash(b"abc"); // official test-vector spec
-        // Re-hash to confirm determinism
+                                                // Re-hash to confirm determinism
         assert_eq!(hasher.hash(b""), expected_empty);
         assert_eq!(hasher.hash(b"abc"), expected_abc);
         // Ensure the raw 64-bit helper works

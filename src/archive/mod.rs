@@ -162,7 +162,9 @@ impl ArchiveManager for ArchiveManagerImpl {
             let mut config = config;
             config.name.clone_from(&name);
             if config.name.trim().is_empty() {
-                return Err(AegisError::InvalidConfig("archive name must not be empty".into()));
+                return Err(AegisError::InvalidConfig(
+                    "archive name must not be empty".into(),
+                ));
             }
             if config.chunk_size < 4096 || config.chunk_size > 16 * 1024 * 1024 {
                 return Err(AegisError::InvalidConfig(format!(
@@ -171,7 +173,11 @@ impl ArchiveManager for ArchiveManagerImpl {
                 )));
             }
 
-            if self.archives.iter().any(|e| e.archive.name == name && !e.deleted) {
+            if self
+                .archives
+                .iter()
+                .any(|e| e.archive.name == name && !e.deleted)
+            {
                 return Err(AegisError::AlreadyExists(format!(
                     "archive with name '{}' already exists",
                     name
@@ -181,69 +187,84 @@ impl ArchiveManager for ArchiveManagerImpl {
             let id = ArchiveId::new();
 
             // Set up encryption provider
-            let encryption_provider: Option<Arc<dyn EncryptionProvider>> = if let Some(algo) = config.encryption {
-                let passphrase = config.passphrase.as_deref().unwrap_or("default_passphrase");
-                let salt = id.as_uuid().as_bytes();
-                let derivation = crate::crypto::KeyDerivation::new("AegisFS Archive Key Derivation");
-                let key = derivation.derive_key(passphrase, salt);
-                let key_id = id.as_uuid().as_bytes().to_vec();
+            let encryption_provider: Option<Arc<dyn EncryptionProvider>> =
+                if let Some(algo) = config.encryption {
+                    let passphrase = config.passphrase.as_deref().unwrap_or("default_passphrase");
+                    let salt = id.as_uuid().as_bytes();
+                    let derivation =
+                        crate::crypto::KeyDerivation::new("AegisFS Archive Key Derivation");
+                    let key = derivation.derive_key(passphrase, salt);
+                    let key_id = id.as_uuid().as_bytes().to_vec();
 
-                let provider: Arc<dyn EncryptionProvider> = match algo {
-                    EncryptionAlgorithm::Aes256Gcm => {
-                        #[cfg(feature = "aes-encryption")]
-                        {
-                            Arc::new(crate::crypto::Aes256GcmProvider::new(key, key_id))
+                    let provider: Arc<dyn EncryptionProvider> = match algo {
+                        EncryptionAlgorithm::Aes256Gcm => {
+                            #[cfg(feature = "aes-encryption")]
+                            {
+                                Arc::new(crate::crypto::Aes256GcmProvider::new(key, key_id))
+                            }
+                            #[cfg(not(feature = "aes-encryption"))]
+                            {
+                                return Err(AegisError::EncryptionError(
+                                    "AES-256-GCM feature not enabled".into(),
+                                ));
+                            }
                         }
-                        #[cfg(not(feature = "aes-encryption"))]
-                        {
-                            return Err(AegisError::EncryptionError("AES-256-GCM feature not enabled".into()));
+                        EncryptionAlgorithm::ChaCha20Poly1305 => {
+                            #[cfg(feature = "chacha-encryption")]
+                            {
+                                Arc::new(crate::crypto::ChaCha20Poly1305Provider::new(key, key_id))
+                            }
+                            #[cfg(not(feature = "chacha-encryption"))]
+                            {
+                                return Err(AegisError::EncryptionError(
+                                    "ChaCha20-Poly1305 feature not enabled".into(),
+                                ));
+                            }
                         }
-                    }
-                    EncryptionAlgorithm::ChaCha20Poly1305 => {
-                        #[cfg(feature = "chacha-encryption")]
-                        {
-                            Arc::new(crate::crypto::ChaCha20Poly1305Provider::new(key, key_id))
-                        }
-                        #[cfg(not(feature = "chacha-encryption"))]
-                        {
-                            return Err(AegisError::EncryptionError("ChaCha20-Poly1305 feature not enabled".into()));
-                        }
-                    }
+                    };
+                    Some(provider)
+                } else {
+                    None
                 };
-                Some(provider)
-            } else {
-                None
-            };
 
             // Set up compression provider
-            let compression_provider: Option<Arc<dyn CompressionProvider>> = match config.compression {
-                CompressionAlgorithm::None => None,
-                CompressionAlgorithm::Zstd(level) => Some(Arc::new(crate::compression::ZstdCompression::new(level))),
-                CompressionAlgorithm::Lz4 => Some(Arc::new(crate::compression::Lz4Compression::new())),
-            };
+            let compression_provider: Option<Arc<dyn CompressionProvider>> =
+                match config.compression {
+                    CompressionAlgorithm::None => None,
+                    CompressionAlgorithm::Zstd(level) => {
+                        Some(Arc::new(crate::compression::ZstdCompression::new(level)))
+                    }
+                    CompressionAlgorithm::Lz4 => {
+                        Some(Arc::new(crate::compression::Lz4Compression::new()))
+                    }
+                };
 
             // Set up underlying chunk storage (local disk or memory)
-            let base_storage: Arc<dyn ChunkStorage> = if global_config.storage.kind == StorageBackendKind::Local {
-                let storage_path = global_config.storage.path.clone()
-                    .unwrap_or_else(|| "/var/lib/aegisfs/data".to_string());
-                let base_path = std::path::PathBuf::from(storage_path).join(id.to_string());
-                Arc::new(DiskChunkStorage::new(base_path)?)
-            } else {
-                Arc::new(MemoryChunkStorage::new())
-            };
+            let base_storage: Arc<dyn ChunkStorage> =
+                if global_config.storage.kind == StorageBackendKind::Local {
+                    let storage_path = global_config
+                        .storage
+                        .path
+                        .clone()
+                        .unwrap_or_else(|| "/var/lib/aegisfs/data".to_string());
+                    let base_path = std::path::PathBuf::from(storage_path).join(id.to_string());
+                    Arc::new(DiskChunkStorage::new(base_path)?)
+                } else {
+                    Arc::new(MemoryChunkStorage::new())
+                };
 
             // Wrap with compression/encryption layer
-            let chunk_storage: Arc<dyn ChunkStorage> = Arc::new(EncryptedCompressedChunkStorage::new(
-                base_storage,
-                encryption_provider.clone(),
-                compression_provider,
-            ));
+            let chunk_storage: Arc<dyn ChunkStorage> =
+                Arc::new(EncryptedCompressedChunkStorage::new(
+                    base_storage,
+                    encryption_provider.clone(),
+                    compression_provider,
+                ));
 
             let manifest_store = Arc::new(crate::manifest::MemoryManifestStore::new());
             let metadata = Arc::new(crate::metadata::MemoryMetadataIndex::new());
-            let chunker: Arc<dyn Chunker> = Arc::new(crate::chunking::FixedSizeChunker::new(
-                config.chunk_size,
-            ));
+            let chunker: Arc<dyn Chunker> =
+                Arc::new(crate::chunking::FixedSizeChunker::new(config.chunk_size));
 
             let dedup_index: Arc<dyn DedupIndex> = Arc::new(crate::dedup::MemoryDedupIndex::new());
             let dedup_engine = Arc::new(crate::dedup::DedupEngine::new(
@@ -252,33 +273,29 @@ impl ArchiveManager for ArchiveManagerImpl {
                 chunk_storage.clone(),
             ));
 
-            let fs: Arc<dyn VirtualFileSystem> = Arc::new(
-                crate::filesystem::VirtualFileSystemImpl::new(
+            let fs: Arc<dyn VirtualFileSystem> =
+                Arc::new(crate::filesystem::VirtualFileSystemImpl::new(
                     metadata.clone(),
                     chunk_storage.clone(),
                     dedup_engine.clone(),
-                ),
-            );
+                ));
 
-            let snapshot_store: Arc<dyn SnapshotStore> =
-                Arc::new(MemorySnapshotStore::new());
+            let snapshot_store: Arc<dyn SnapshotStore> = Arc::new(MemorySnapshotStore::new());
 
-            let snapshot: Arc<dyn SnapshotManager> = Arc::new(
-                crate::snapshot::SnapshotManagerImpl::new(
+            let snapshot: Arc<dyn SnapshotManager> =
+                Arc::new(crate::snapshot::SnapshotManagerImpl::new(
                     metadata.clone(),
                     manifest_store.clone(),
                     snapshot_store,
                     id,
                     crate::snapshot::SnapshotPolicy::default(),
-                ),
-            );
+                ));
 
-            let integrity: Arc<dyn IntegrityVerifier> = Arc::new(
-                crate::verification::IntegrityVerifierImpl::new(
+            let integrity: Arc<dyn IntegrityVerifier> =
+                Arc::new(crate::verification::IntegrityVerifierImpl::new(
                     chunk_storage.clone(),
                     metadata.clone(),
-                ),
-            );
+                ));
 
             let now = chrono::Utc::now();
             let archive = Archive {
@@ -314,10 +331,7 @@ impl ArchiveManager for ArchiveManagerImpl {
         })
     }
 
-    fn open_archive(
-        &self,
-        id: &ArchiveId,
-    ) -> BoxFuture<'_, AegisResult<Box<dyn ArchiveHandle>>> {
+    fn open_archive(&self, id: &ArchiveId) -> BoxFuture<'_, AegisResult<Box<dyn ArchiveHandle>>> {
         let id = *id;
         Box::pin(async move {
             let entry = self
@@ -488,7 +502,10 @@ impl ChunkStorage for MemoryChunkStorage {
     fn read_chunk(&self, id: &ChunkId) -> BoxFuture<'_, AegisResult<Chunk>> {
         let id = *id;
         let guard = self.chunks.lock().unwrap();
-        let result = guard.get(&id).cloned().ok_or_else(|| AegisError::ChunkNotFound(id.to_string()));
+        let result = guard
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| AegisError::ChunkNotFound(id.to_string()));
         Box::pin(async move { result })
     }
     fn delete_chunk(&self, id: &ChunkId) -> BoxFuture<'_, AegisResult<()>> {
@@ -533,7 +550,11 @@ impl DiskChunkStorage {
 
     fn chunk_path(&self, id: &ChunkId) -> std::path::PathBuf {
         let id_str = id.to_string();
-        let prefix = if id_str.len() >= 2 { &id_str[0..2] } else { "xx" };
+        let prefix = if id_str.len() >= 2 {
+            &id_str[0..2]
+        } else {
+            "xx"
+        };
         self.base_path.join(prefix).join(id_str)
     }
 }
@@ -546,15 +567,15 @@ impl ChunkStorage for DiskChunkStorage {
             if let Some(parent) = path.parent() {
                 tokio::fs::create_dir_all(parent).await?;
             }
-            
+
             let temp_path = path.with_extension("tmp");
             tokio::fs::write(&temp_path, &chunk.data).await?;
-            
+
             if let Err(e) = tokio::fs::rename(&temp_path, &path).await {
                 let _ = tokio::fs::remove_file(&temp_path).await;
                 return Err(AegisError::Io(e));
             }
-            
+
             Ok(id)
         })
     }
@@ -592,21 +613,19 @@ impl ChunkStorage for DiskChunkStorage {
     fn has_chunk(&self, id: &ChunkId) -> BoxFuture<'_, AegisResult<bool>> {
         let id = *id;
         let path = self.chunk_path(&id);
-        Box::pin(async move {
-            Ok(tokio::fs::metadata(&path).await.is_ok())
-        })
+        Box::pin(async move { Ok(tokio::fs::metadata(&path).await.is_ok()) })
     }
 
     fn list_chunks(&self) -> BoxFuture<'_, AegisResult<Vec<ChunkId>>> {
         let base = self.base_path.clone();
         Box::pin(async move {
             let mut ids = Vec::new();
-            if !tokio::fs::metadata(&base).await.is_ok() {
+            if tokio::fs::metadata(&base).await.is_err() {
                 return Ok(ids);
             }
-            
+
             let mut entries = tokio::fs::read_dir(&base).await?;
-            
+
             while let Some(entry) = entries.next_entry().await? {
                 let path = entry.path();
                 if path.is_dir() {
@@ -628,12 +647,12 @@ impl ChunkStorage for DiskChunkStorage {
         let base = self.base_path.clone();
         Box::pin(async move {
             let mut total = 0;
-            if !tokio::fs::metadata(&base).await.is_ok() {
+            if tokio::fs::metadata(&base).await.is_err() {
                 return Ok(0);
             }
-            
+
             let mut entries = tokio::fs::read_dir(&base).await?;
-            
+
             while let Some(entry) = entries.next_entry().await? {
                 let path = entry.path();
                 if path.is_dir() {
@@ -652,12 +671,12 @@ impl ChunkStorage for DiskChunkStorage {
         let base = self.base_path.clone();
         Box::pin(async move {
             let mut count = 0;
-            if !tokio::fs::metadata(&base).await.is_ok() {
+            if tokio::fs::metadata(&base).await.is_err() {
                 return Ok(0);
             }
-            
+
             let mut entries = tokio::fs::read_dir(&base).await?;
-            
+
             while let Some(entry) = entries.next_entry().await? {
                 let path = entry.path();
                 if path.is_dir() {
@@ -742,7 +761,8 @@ impl ChunkStorage for EncryptedCompressedChunkStorage {
                     if enc.algorithm() != algo {
                         return Err(AegisError::DecryptionError(format!(
                             "mismatched encryption algorithm: expected {}, got {}",
-                            algo, enc.algorithm()
+                            algo,
+                            enc.algorithm()
                         )));
                     }
                 }
@@ -756,7 +776,8 @@ impl ChunkStorage for EncryptedCompressedChunkStorage {
                     if comp.algorithm() != algo {
                         return Err(AegisError::DecompressionError(format!(
                             "mismatched compression algorithm: expected {:?}, got {:?}",
-                            algo, comp.algorithm()
+                            algo,
+                            comp.algorithm()
                         )));
                     }
                 }
@@ -813,10 +834,7 @@ impl SnapshotStore for MemorySnapshotStore {
         let id = snapshot.id;
         let archive_id = snapshot.archive_id;
         self.snapshots.insert(id, snapshot);
-        self.archive_index
-            .entry(archive_id)
-            .or_default()
-            .push(id);
+        self.archive_index.entry(archive_id).or_default().push(id);
         Box::pin(async move { Ok(id) })
     }
 
@@ -902,8 +920,6 @@ impl SnapshotStore for MemorySnapshotStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
-    use std::collections::HashMap;
 
     fn default_config(name: &str) -> ArchiveConfig {
         ArchiveConfig {
@@ -1036,10 +1052,7 @@ mod tests {
         let manager = ArchiveManagerImpl::new();
         let id = ArchiveId::new();
         let result = rt.block_on(manager.open_archive(&id));
-        assert!(matches!(
-            result,
-            Err(AegisError::ArchiveNotFound(_))
-        ));
+        assert!(matches!(result, Err(AegisError::ArchiveNotFound(_))));
     }
 
     #[test]
@@ -1052,10 +1065,7 @@ mod tests {
             .unwrap();
         rt.block_on(manager.delete_archive(&id)).unwrap();
         let get_result = rt.block_on(manager.get_archive(&id));
-        assert!(matches!(
-            get_result,
-            Err(AegisError::ArchiveNotFound(_))
-        ));
+        assert!(matches!(get_result, Err(AegisError::ArchiveNotFound(_))));
     }
 
     #[test]
@@ -1064,10 +1074,7 @@ mod tests {
         let manager = ArchiveManagerImpl::new();
         let id = ArchiveId::new();
         let result = rt.block_on(manager.delete_archive(&id));
-        assert!(matches!(
-            result,
-            Err(AegisError::ArchiveNotFound(_))
-        ));
+        assert!(matches!(result, Err(AegisError::ArchiveNotFound(_))));
     }
 
     #[test]
@@ -1080,10 +1087,7 @@ mod tests {
             .unwrap();
         rt.block_on(manager.delete_archive(&id)).unwrap();
         let result = rt.block_on(manager.delete_archive(&id));
-        assert!(matches!(
-            result,
-            Err(AegisError::ArchiveNotFound(_))
-        ));
+        assert!(matches!(result, Err(AegisError::ArchiveNotFound(_))));
     }
 
     #[test]
@@ -1116,10 +1120,7 @@ mod tests {
             .block_on(manager.create_archive("pre-sealed", config))
             .unwrap();
         let result = rt.block_on(manager.seal_archive(&id));
-        assert!(matches!(
-            result,
-            Err(AegisError::ArchiveSealed(_))
-        ));
+        assert!(matches!(result, Err(AegisError::ArchiveSealed(_))));
     }
 
     #[test]
@@ -1128,10 +1129,7 @@ mod tests {
         let manager = ArchiveManagerImpl::new();
         let id = ArchiveId::new();
         let result = rt.block_on(manager.seal_archive(&id));
-        assert!(matches!(
-            result,
-            Err(AegisError::ArchiveNotFound(_))
-        ));
+        assert!(matches!(result, Err(AegisError::ArchiveNotFound(_))));
     }
 
     #[test]
@@ -1151,7 +1149,7 @@ mod tests {
             .block_on(manager.create_archive("sealed-handle", config))
             .unwrap();
         let handle = rt.block_on(manager.open_archive(&id)).unwrap();
-        assert!(handle.is_closed() == false);
+        assert!(!handle.is_closed());
     }
 
     #[test]
@@ -1222,10 +1220,7 @@ mod tests {
         let manager = ArchiveManagerImpl::new();
         let id = ArchiveId::new();
         let result = rt.block_on(manager.get_archive(&id));
-        assert!(matches!(
-            result,
-            Err(AegisError::ArchiveNotFound(_))
-        ));
+        assert!(matches!(result, Err(AegisError::ArchiveNotFound(_))));
     }
 
     #[test]
@@ -1238,10 +1233,7 @@ mod tests {
             .unwrap();
         rt.block_on(manager.delete_archive(&id)).unwrap();
         let result = rt.block_on(manager.get_archive(&id));
-        assert!(matches!(
-            result,
-            Err(AegisError::ArchiveNotFound(_))
-        ));
+        assert!(matches!(result, Err(AegisError::ArchiveNotFound(_))));
     }
 
     #[test]
@@ -1253,10 +1245,7 @@ mod tests {
             .unwrap();
         let dup_config = default_config("unique");
         let result = rt.block_on(manager.create_archive("unique", dup_config));
-        assert!(matches!(
-            result,
-            Err(AegisError::AlreadyExists(_))
-        ));
+        assert!(matches!(result, Err(AegisError::AlreadyExists(_))));
     }
 
     #[test]
@@ -1356,7 +1345,7 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let manager = ArchiveManagerImpl::new();
 
-        let algorithms = vec![
+        let algorithms = [
             CompressionAlgorithm::None,
             CompressionAlgorithm::Lz4,
             CompressionAlgorithm::Zstd(1),
@@ -1427,10 +1416,7 @@ mod tests {
             .unwrap();
         rt.block_on(manager.delete_archive(&id)).unwrap();
         let result = rt.block_on(manager.open_archive(&id));
-        assert!(matches!(
-            result,
-            Err(AegisError::ArchiveNotFound(_))
-        ));
+        assert!(matches!(result, Err(AegisError::ArchiveNotFound(_))));
     }
 
     #[test]
@@ -1478,13 +1464,11 @@ mod tests {
         let key = derivation.derive_key(passphrase, salt);
         let key_id = archive_id.as_uuid().as_bytes().to_vec();
 
-        let encryption_provider: Arc<dyn EncryptionProvider> = Arc::new(
-            crate::crypto::Aes256GcmProvider::new(key, key_id)
-        );
+        let encryption_provider: Arc<dyn EncryptionProvider> =
+            Arc::new(crate::crypto::Aes256GcmProvider::new(key, key_id));
 
-        let compression_provider: Arc<dyn CompressionProvider> = Arc::new(
-            crate::compression::ZstdCompression::new(3)
-        );
+        let compression_provider: Arc<dyn CompressionProvider> =
+            Arc::new(crate::compression::ZstdCompression::new(3));
 
         // 3. Wrap disk storage with our EncryptedCompressedChunkStorage layer
         let secure_storage = EncryptedCompressedChunkStorage::new(
@@ -1494,7 +1478,8 @@ mod tests {
         );
 
         // 4. Create a test chunk with realistic data
-        let original_data = b"Verify encryption, compression, and disk persistence flow thoroughly!";
+        let original_data =
+            b"Verify encryption, compression, and disk persistence flow thoroughly!";
         let chunk_id = ChunkId::from_data(original_data);
         let chunk = Chunk::new(chunk_id, bytes::Bytes::from_static(original_data));
 

@@ -150,10 +150,12 @@ pub struct ConfigBuilder;
 
 impl ConfigBuilder {
     pub fn from_file(path: &str) -> AegisResult<AegisConfig> {
-        let data = fs::read_to_string(path)
-            .map_err(|e| AegisError::InvalidConfig(format!("failed to read config file '{}': {}", path, e)))?;
-        serde_json::from_str(&data)
-            .map_err(|e| AegisError::InvalidConfig(format!("failed to parse config file '{}': {}", path, e)))
+        let data = fs::read_to_string(path).map_err(|e| {
+            AegisError::InvalidConfig(format!("failed to read config file '{}': {}", path, e))
+        })?;
+        serde_json::from_str(&data).map_err(|e| {
+            AegisError::InvalidConfig(format!("failed to parse config file '{}': {}", path, e))
+        })
     }
 
     pub fn from_env() -> AegisConfig {
@@ -236,7 +238,10 @@ impl ConfigBuilder {
         config
     }
 
-    pub fn with_archive_defaults(mut config: AegisConfig, defaults: ArchiveDefaults) -> AegisConfig {
+    pub fn with_archive_defaults(
+        mut config: AegisConfig,
+        defaults: ArchiveDefaults,
+    ) -> AegisConfig {
         config.archive_defaults = defaults;
         config
     }
@@ -246,7 +251,10 @@ impl ConfigBuilder {
         config
     }
 
-    pub fn with_compression(mut config: AegisConfig, compression: CompressionConfig) -> AegisConfig {
+    pub fn with_compression(
+        mut config: AegisConfig,
+        compression: CompressionConfig,
+    ) -> AegisConfig {
         config.compression = compression;
         config
     }
@@ -261,7 +269,10 @@ impl ConfigBuilder {
         config
     }
 
-    pub fn with_replication(mut config: AegisConfig, replication: ReplicationConfig) -> AegisConfig {
+    pub fn with_replication(
+        mut config: AegisConfig,
+        replication: ReplicationConfig,
+    ) -> AegisConfig {
         config.replication = replication;
         config
     }
@@ -289,9 +300,7 @@ impl ConfigLoader {
 
         for path in paths {
             if path.exists() {
-                let partial: AegisConfig = ConfigBuilder::from_file(
-                    &path.to_string_lossy(),
-                )?;
+                let partial: AegisConfig = ConfigBuilder::from_file(&path.to_string_lossy())?;
                 config = Self::merge(config, partial);
             }
         }
@@ -323,7 +332,10 @@ mod tests {
     fn test_default_values() {
         let config = AegisConfig::default();
         assert_eq!(config.archive_defaults.chunk_size, 64 * 1024);
-        assert_eq!(config.archive_defaults.compression, CompressionAlgorithm::Zstd(3));
+        assert_eq!(
+            config.archive_defaults.compression,
+            CompressionAlgorithm::Zstd(3)
+        );
         assert!(config.archive_defaults.dedup_enabled);
         assert_eq!(config.cache.max_entries, 10_000);
         assert_eq!(config.cache.max_memory_mb, 512);
@@ -358,7 +370,10 @@ mod tests {
         assert_eq!(restored.archive_defaults.chunk_size, 128 * 1024);
         assert_eq!(restored.cache.max_entries, 20_000);
         assert_eq!(restored.compression.level, 6);
-        assert_eq!(restored.encryption.algorithm, EncryptionAlgorithm::ChaCha20Poly1305);
+        assert_eq!(
+            restored.encryption.algorithm,
+            EncryptionAlgorithm::ChaCha20Poly1305
+        );
         assert_eq!(restored.logging.level, LogLevel::Debug);
         assert_eq!(restored.scheduler.worker_threads, 8);
 
@@ -458,7 +473,10 @@ mod tests {
         assert_eq!(updated.compression.algorithm, CompressionAlgorithm::Lz4);
         assert_eq!(updated.compression.min_size_for_compression, 512);
         assert_eq!(updated.logging.level, LogLevel::Warn);
-        assert_eq!(updated.logging.file_path.as_deref(), Some("/var/log/aegis.log"));
+        assert_eq!(
+            updated.logging.file_path.as_deref(),
+            Some("/var/log/aegis.log")
+        );
         assert_eq!(updated.logging.max_files, 14);
     }
 }

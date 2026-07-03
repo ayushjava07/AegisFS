@@ -111,8 +111,10 @@ impl Scheduler for ThreadPoolScheduler {
     }
 }
 
+type RegistryTaskFuture = Arc<tokio::sync::Mutex<BoxFuture<'static, AegisResult<()>>>>;
+
 pub struct TaskRegistry {
-    tasks: Arc<dashmap::DashMap<String, Arc<tokio::sync::Mutex<BoxFuture<'static, AegisResult<()>>>>>>,
+    tasks: Arc<dashmap::DashMap<String, RegistryTaskFuture>>,
 }
 
 impl TaskRegistry {
@@ -135,7 +137,9 @@ impl TaskRegistry {
         F: Fn() -> Fut + Send + Sync + 'static,
         Fut: Future<Output = AegisResult<()>> + Send + 'static,
     {
-        let task = Arc::new(tokio::sync::Mutex::new(Box::pin(async move { (task_fn)().await }) as BoxFuture<'static, AegisResult<()>>));
+        let task = Arc::new(tokio::sync::Mutex::new(
+            Box::pin(async move { (task_fn)().await }) as BoxFuture<'static, AegisResult<()>>,
+        ));
         self.tasks.insert(name.to_string(), task);
     }
 
@@ -163,8 +167,7 @@ fn remove_orphaned_chunks(
 ) -> BoxFuture<'static, AegisResult<u64>> {
     Box::pin(async move {
         let all = storage.list_chunks().await?;
-        let ref_set: std::collections::HashSet<ChunkId> =
-            referenced.iter().cloned().collect();
+        let ref_set: std::collections::HashSet<ChunkId> = referenced.iter().cloned().collect();
         let mut removed = 0u64;
         for id in &all {
             if !ref_set.contains(id) {
@@ -198,7 +201,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_submit_and_complete_task() {
         let scheduler = Arc::new(ThreadPoolScheduler::new());
-        let mut handle = scheduler
+        let handle = scheduler
             .submit(async { Ok::<i32, AegisError>(42) })
             .await
             .unwrap();
@@ -210,7 +213,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_task_is_completed() {
         let scheduler = Arc::new(ThreadPoolScheduler::new());
-        let mut handle = scheduler
+        let handle = scheduler
             .submit(async {
                 tokio::time::sleep(Duration::from_millis(10)).await;
                 Ok::<(), AegisError>(())
@@ -226,7 +229,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_cancel_task() {
         let scheduler = Arc::new(ThreadPoolScheduler::new());
-        let mut handle = scheduler
+        let handle = scheduler
             .submit(async {
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 Ok::<(), AegisError>(())
@@ -245,7 +248,7 @@ mod tests {
         let flag = Arc::new(AtomicBool::new(false));
         let flag_clone = flag.clone();
 
-        let task_id = scheduler
+        let _task_id = scheduler
             .schedule(
                 Box::pin(async move {
                     flag_clone.store(true, Ordering::SeqCst);
@@ -272,9 +275,7 @@ mod tests {
             .unwrap();
 
         scheduler.shutdown().await.unwrap();
-        let result = scheduler
-            .submit(async { Ok::<(), AegisError>(()) })
-            .await;
+        let result = scheduler.submit(async { Ok::<(), AegisError>(()) }).await;
         assert!(result.is_err());
     }
 
@@ -321,9 +322,7 @@ mod tests {
         fn read_chunk(&self, id: &ChunkId) -> BoxFuture<'_, AegisResult<Chunk>> {
             let id = *id;
             let chunks = self.chunks.lock().unwrap().get(&id).cloned();
-            Box::pin(async move {
-                chunks.ok_or_else(|| AegisError::ChunkNotFound(id.to_string()))
-            })
+            Box::pin(async move { chunks.ok_or_else(|| AegisError::ChunkNotFound(id.to_string())) })
         }
         fn delete_chunk(&self, id: &ChunkId) -> BoxFuture<'_, AegisResult<()>> {
             let id = *id;

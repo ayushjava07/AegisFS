@@ -1,8 +1,8 @@
 use crate::core::error::{AegisError, AegisResult};
 use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 /// A region of allocated memory with usage tracking.
 pub struct MemoryBlock {
@@ -13,14 +13,20 @@ pub struct MemoryBlock {
 impl MemoryBlock {
     /// Allocate a new zeroed block of the given size.
     pub fn new(size: usize) -> Self {
-        Self { data: vec![0u8; size].into_boxed_slice(), offset: 0 }
+        Self {
+            data: vec![0u8; size].into_boxed_slice(),
+            offset: 0,
+        }
     }
 
     /// Allocate a block from an existing buffer, taking ownership.
     pub fn from_vec(mut vec: Vec<u8>) -> Self {
         let len = vec.len();
         vec.shrink_to_fit();
-        Self { data: vec.into_boxed_slice(), offset: len }
+        Self {
+            data: vec.into_boxed_slice(),
+            offset: len,
+        }
     }
 
     /// Number of bytes written / in use within the block.
@@ -71,9 +77,11 @@ impl MemoryBlock {
     /// Set how many bytes are considered used.
     pub fn set_offset(&mut self, offset: usize) -> AegisResult<()> {
         if offset > self.data.len() {
-            return Err(AegisError::InvalidArgument(
-                format!("offset {} exceeds block capacity {}", offset, self.data.len()),
-            ));
+            return Err(AegisError::InvalidArgument(format!(
+                "offset {} exceeds block capacity {}",
+                offset,
+                self.data.len()
+            )));
         }
         self.offset = offset;
         Ok(())
@@ -95,7 +103,10 @@ impl MemoryBlock {
 
 impl Clone for MemoryBlock {
     fn clone(&self) -> Self {
-        Self { data: self.data.clone(), offset: self.offset }
+        Self {
+            data: self.data.clone(),
+            offset: self.offset,
+        }
     }
 }
 
@@ -152,11 +163,13 @@ impl MemoryPool {
             let mut free = self.free.lock();
             let block = free.pop().unwrap_or_else(|| {
                 let b = MemoryBlock::new(self.block_size);
-                self.total_capacity.fetch_add(self.block_size, Ordering::Relaxed);
+                self.total_capacity
+                    .fetch_add(self.block_size, Ordering::Relaxed);
                 b
             });
             self.allocated_count.fetch_add(1, Ordering::Relaxed);
-            self.allocated_bytes.fetch_add(self.block_size, Ordering::Relaxed);
+            self.allocated_bytes
+                .fetch_add(self.block_size, Ordering::Relaxed);
             Ok(block)
         } else {
             let block = MemoryBlock::new(size);
@@ -342,7 +355,11 @@ impl<T> SlabAllocator<T> {
     /// Number of live allocations.
     pub fn live_count(&self) -> usize {
         let inner = self.inner.lock();
-        let free_in_entries = inner.free.iter().filter(|&&idx| idx < inner.entries.len()).count();
+        let free_in_entries = inner
+            .free
+            .iter()
+            .filter(|&&idx| idx < inner.entries.len())
+            .count();
         inner.entries.len() - free_in_entries
     }
 
@@ -400,7 +417,9 @@ impl BufferPool {
     /// capacity.
     pub fn new(buffer_size: usize) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(BufferPoolInner { buffers: Vec::new() })),
+            inner: Arc::new(Mutex::new(BufferPoolInner {
+                buffers: Vec::new(),
+            })),
             buffer_size,
         }
     }
@@ -408,9 +427,15 @@ impl BufferPool {
     /// Acquire a buffer from the pool, or create a fresh one if empty.
     pub fn acquire(&self) -> PooledBuffer {
         let mut inner = self.inner.lock();
-        let mut buf = inner.buffers.pop().unwrap_or_else(|| Vec::with_capacity(self.buffer_size));
+        let mut buf = inner
+            .buffers
+            .pop()
+            .unwrap_or_else(|| Vec::with_capacity(self.buffer_size));
         buf.resize(self.buffer_size, 0);
-        PooledBuffer { buf: Some(buf), pool: Some(self.clone()) }
+        PooledBuffer {
+            buf: Some(buf),
+            pool: Some(self.clone()),
+        }
     }
 
     /// Return a `Vec<u8>` to the pool.
@@ -452,12 +477,18 @@ impl PooledBuffer {
     /// Create a standalone pooled buffer *not* associated with any pool.
     /// On drop the buffer is deallocated normally.
     pub fn new(size: usize) -> Self {
-        Self { buf: Some(vec![0u8; size]), pool: None }
+        Self {
+            buf: Some(vec![0u8; size]),
+            pool: None,
+        }
     }
 
     /// Wrap an existing `Vec<u8>` into a pooled buffer (no pool association).
     pub fn from_vec(vec: Vec<u8>) -> Self {
-        Self { buf: Some(vec), pool: None }
+        Self {
+            buf: Some(vec),
+            pool: None,
+        }
     }
 
     /// Access the underlying bytes.
@@ -889,6 +920,9 @@ mod tests {
         }
 
         // at least some buffers should be cached
-        assert!(pool.len() > 0, "expected cached buffers after concurrent use");
+        assert!(
+            !pool.is_empty(),
+            "expected cached buffers after concurrent use"
+        );
     }
 }

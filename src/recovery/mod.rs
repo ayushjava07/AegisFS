@@ -51,7 +51,9 @@ impl RecoveryManager for RecoveryManagerImpl {
                 RecoveryAction::ReplayJournal => {
                     struct ReplayHandler;
                     impl JournalHandler for ReplayHandler {
-                        fn handle(&mut self, _entry: &JournalEntry) -> AegisResult<()> { Ok(()) }
+                        fn handle(&mut self, _entry: &JournalEntry) -> AegisResult<()> {
+                            Ok(())
+                        }
                     }
                     match self.journal.replay(Box::new(ReplayHandler)).await {
                         Ok(count) => {
@@ -115,17 +117,20 @@ impl RecoveryManager for RecoveryManagerImpl {
                     let chunks = self.storage.list_chunks().await.unwrap_or_default();
                     for chunk_id in &chunks {
                         if let Ok(chunk) = self.storage.read_chunk(chunk_id).await {
-                            let _ = self.metadata.put_node(Node {
-                                id: NodeId::new(),
-                                name: format!("recovered-{}", chunk_id),
-                                kind: NodeKind::File,
-                                size: chunk.size,
-                                mode: NodePermissions::default_for("root"),
-                                created_at: chrono::Utc::now(),
-                                modified_at: chrono::Utc::now(),
-                                content_hash: Some(chunk.checksum),
-                                metadata: NodeMetadata::default(),
-                            }).await;
+                            let _ = self
+                                .metadata
+                                .put_node(Node {
+                                    id: NodeId::new(),
+                                    name: format!("recovered-{}", chunk_id),
+                                    kind: NodeKind::File,
+                                    size: chunk.size,
+                                    mode: NodePermissions::default_for("root"),
+                                    created_at: chrono::Utc::now(),
+                                    modified_at: chrono::Utc::now(),
+                                    content_hash: Some(chunk.checksum),
+                                    metadata: NodeMetadata::default(),
+                                })
+                                .await;
                             entries_replayed += 1;
                         }
                     }
@@ -135,7 +140,9 @@ impl RecoveryManager for RecoveryManagerImpl {
                     let seq = self.journal.latest_sequence().await?;
                     struct FullHandler;
                     impl JournalHandler for FullHandler {
-                        fn handle(&mut self, _entry: &JournalEntry) -> AegisResult<()> { Ok(()) }
+                        fn handle(&mut self, _entry: &JournalEntry) -> AegisResult<()> {
+                            Ok(())
+                        }
                     }
                     match self.journal.replay(Box::new(FullHandler)).await {
                         Ok(count) => {
@@ -179,7 +186,9 @@ impl RecoveryManager for RecoveryManagerImpl {
             if success {
                 Ok(report)
             } else {
-                Err(AegisError::RecoveryError("recovery completed with errors".into()))
+                Err(AegisError::RecoveryError(
+                    "recovery completed with errors".into(),
+                ))
             }
         })
     }
@@ -215,19 +224,16 @@ impl IntegrityScanner {
             Err(_) => return results,
         };
         for chunk_id in &chunks {
-            match self.storage.read_chunk(chunk_id).await {
-                Ok(chunk) => {
-                    let actual = HashValue::sha256(&chunk.data);
-                    let valid = actual == chunk.checksum;
-                    results.push(IntegrityProof {
-                        chunk_id: *chunk_id,
-                        expected_hash: chunk.checksum,
-                        actual_hash: actual,
-                        valid,
-                        verified_at: chrono::Utc::now(),
-                    });
-                }
-                Err(_) => {}
+            if let Ok(chunk) = self.storage.read_chunk(chunk_id).await {
+                let actual = HashValue::sha256(&chunk.data);
+                let valid = actual == chunk.checksum;
+                results.push(IntegrityProof {
+                    chunk_id: *chunk_id,
+                    expected_hash: chunk.checksum,
+                    actual_hash: actual,
+                    valid,
+                    verified_at: chrono::Utc::now(),
+                });
             }
         }
         results
@@ -256,9 +262,9 @@ impl IntegrityScanner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::Bytes;
     use std::collections::HashMap;
     use std::sync::Arc;
-    use bytes::Bytes;
 
     struct MockJournalStore {
         entries: Arc<parking_lot::Mutex<Vec<JournalEntry>>>,
@@ -284,7 +290,11 @@ mod tests {
                 Ok(seq)
             })
         }
-        fn read_after(&self, sequence: u64, limit: usize) -> BoxFuture<'_, AegisResult<Vec<JournalEntry>>> {
+        fn read_after(
+            &self,
+            sequence: u64,
+            limit: usize,
+        ) -> BoxFuture<'_, AegisResult<Vec<JournalEntry>>> {
             let entries = self.entries.clone();
             Box::pin(async move {
                 let list = entries.lock();
@@ -307,7 +317,10 @@ mod tests {
         fn truncate(&self, _before_sequence: u64) -> BoxFuture<'_, AegisResult<()>> {
             Box::pin(async { Ok(()) })
         }
-        fn replay(&self, mut handler: Box<dyn JournalHandler + Send>) -> BoxFuture<'_, AegisResult<u64>> {
+        fn replay(
+            &self,
+            mut handler: Box<dyn JournalHandler + Send>,
+        ) -> BoxFuture<'_, AegisResult<u64>> {
             let entries = self.entries.clone();
             Box::pin(async move {
                 let list = entries.lock();
@@ -398,7 +411,11 @@ mod tests {
         fn list_children(&self, _parent_id: &NodeId) -> BoxFuture<'_, AegisResult<Vec<Node>>> {
             Box::pin(async { Ok(vec![]) })
         }
-        fn find_by_name(&self, _parent_id: &NodeId, _name: &str) -> BoxFuture<'_, AegisResult<Option<Node>>> {
+        fn find_by_name(
+            &self,
+            _parent_id: &NodeId,
+            _name: &str,
+        ) -> BoxFuture<'_, AegisResult<Option<Node>>> {
             Box::pin(async { Ok(None) })
         }
         fn search(&self, _query: &dyn MetadataQuery) -> BoxFuture<'_, AegisResult<Vec<Node>>> {
@@ -464,7 +481,10 @@ mod tests {
             Arc::new(MockChunkStorage::new()),
             Arc::new(MockMetadataIndex),
         );
-        let report = manager.recover(RecoveryAction::ReplayJournal).await.unwrap();
+        let report = manager
+            .recover(RecoveryAction::ReplayJournal)
+            .await
+            .unwrap();
         assert!(report.success);
         assert_eq!(report.entries_replayed, 1);
         assert_eq!(report.action, RecoveryAction::ReplayJournal);
@@ -483,7 +503,10 @@ mod tests {
             storage,
             Arc::new(MockMetadataIndex),
         );
-        let report = manager.recover(RecoveryAction::IntegrityScan).await.unwrap();
+        let report = manager
+            .recover(RecoveryAction::IntegrityScan)
+            .await
+            .unwrap();
         assert!(report.success);
     }
 

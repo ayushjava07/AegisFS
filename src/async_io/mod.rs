@@ -28,7 +28,11 @@ impl StreamingReader for AsyncStreamReader {
         Box::pin(async move {
             let mut offset = 0;
             while offset < buf.len() {
-                let n = inner.as_mut().read(&mut buf[offset..]).await.map_err(AegisError::Io)?;
+                let n = inner
+                    .as_mut()
+                    .read(&mut buf[offset..])
+                    .await
+                    .map_err(AegisError::Io)?;
                 if n == 0 {
                     return Err(AegisError::Io(std::io::Error::new(
                         std::io::ErrorKind::UnexpectedEof,
@@ -69,9 +73,7 @@ impl StreamingWriter for AsyncStreamWriter {
     }
 
     fn close(&mut self) -> BoxFuture<'_, AegisResult<()>> {
-        Box::pin(async move {
-            self.inner.as_mut().shutdown().await.map_err(AegisError::Io)
-        })
+        Box::pin(async move { self.inner.as_mut().shutdown().await.map_err(AegisError::Io) })
     }
 }
 
@@ -81,9 +83,7 @@ pub struct AsyncFileAdapter {
 
 impl AsyncFileAdapter {
     pub async fn open(path: &str) -> AegisResult<Self> {
-        let file = tokio::fs::File::open(path)
-            .await
-            .map_err(AegisError::Io)?;
+        let file = tokio::fs::File::open(path).await.map_err(AegisError::Io)?;
         Ok(Self { file })
     }
 
@@ -110,7 +110,10 @@ impl StreamingReader for AsyncFileAdapter {
         Box::pin(async move {
             let mut offset = 0;
             while offset < buf.len() {
-                let n = file.read(&mut buf[offset..]).await.map_err(AegisError::Io)?;
+                let n = file
+                    .read(&mut buf[offset..])
+                    .await
+                    .map_err(AegisError::Io)?;
                 if n == 0 {
                     return Err(AegisError::Io(std::io::Error::new(
                         std::io::ErrorKind::UnexpectedEof,
@@ -124,9 +127,7 @@ impl StreamingReader for AsyncFileAdapter {
     }
 
     fn close(&mut self) -> BoxFuture<'_, AegisResult<()>> {
-        Box::pin(async move {
-            self.file.shutdown().await.map_err(AegisError::Io)
-        })
+        Box::pin(async move { self.file.shutdown().await.map_err(AegisError::Io) })
     }
 }
 
@@ -141,9 +142,7 @@ impl StreamingWriter for AsyncFileAdapter {
     }
 
     fn close(&mut self) -> BoxFuture<'_, AegisResult<()>> {
-        Box::pin(async move {
-            self.file.shutdown().await.map_err(AegisError::Io)
-        })
+        Box::pin(async move { self.file.shutdown().await.map_err(AegisError::Io) })
     }
 }
 
@@ -169,7 +168,10 @@ impl StreamingReader for PipeStream {
         Box::pin(async move {
             let mut offset = 0;
             while offset < buf.len() {
-                let n = inner.read(&mut buf[offset..]).await.map_err(AegisError::Io)?;
+                let n = inner
+                    .read(&mut buf[offset..])
+                    .await
+                    .map_err(AegisError::Io)?;
                 if n == 0 {
                     return Err(AegisError::Io(std::io::Error::new(
                         std::io::ErrorKind::UnexpectedEof,
@@ -183,9 +185,7 @@ impl StreamingReader for PipeStream {
     }
 
     fn close(&mut self) -> BoxFuture<'_, AegisResult<()>> {
-        Box::pin(async move {
-            self.inner.shutdown().await.map_err(AegisError::Io)
-        })
+        Box::pin(async move { self.inner.shutdown().await.map_err(AegisError::Io) })
     }
 }
 
@@ -200,9 +200,7 @@ impl StreamingWriter for PipeStream {
     }
 
     fn close(&mut self) -> BoxFuture<'_, AegisResult<()>> {
-        Box::pin(async move {
-            self.inner.shutdown().await.map_err(AegisError::Io)
-        })
+        Box::pin(async move { self.inner.shutdown().await.map_err(AegisError::Io) })
     }
 }
 
@@ -262,7 +260,8 @@ impl StreamingReader for BufferedStream {
                 }
                 let avail = self.cap - self.pos;
                 let to_copy = (buf.len() - offset).min(avail);
-                buf[offset..offset + to_copy].copy_from_slice(&self.buffer[self.pos..self.pos + to_copy]);
+                buf[offset..offset + to_copy]
+                    .copy_from_slice(&self.buffer[self.pos..self.pos + to_copy]);
                 self.pos += to_copy;
                 offset += to_copy;
             }
@@ -314,7 +313,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_buffered_stream_buffering() {
-        let (mut raw_reader, mut writer) = PipeStream::pair();
+        let (raw_reader, mut writer) = PipeStream::pair();
         let data = vec![0xABu8; 100];
         writer.write(&data).await.unwrap();
         writer.flush().await.unwrap();
@@ -330,7 +329,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_buffered_stream_partial_reads() {
-        let (mut raw_reader, mut writer) = PipeStream::pair();
+        let (raw_reader, mut writer) = PipeStream::pair();
         let data = vec![0x42u8; 64];
         writer.write(&data).await.unwrap();
         writer.flush().await.unwrap();

@@ -1,7 +1,7 @@
-use std::fmt;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use uuid::Uuid;
 
 use super::error::{AegisError, AegisResult};
@@ -263,7 +263,9 @@ pub enum ConflictResolution {
     Manual,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash, strum::EnumString, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash, strum::EnumString, Default,
+)]
 pub enum LogLevel {
     Trace,
     Debug,
@@ -420,7 +422,8 @@ impl<T: Send + 'static> TaskHandle<T> {
     pub fn complete(&self, result: AegisResult<T>) {
         let mut res = self.result.lock().unwrap();
         *res = Some(result);
-        self.completed.store(true, std::sync::atomic::Ordering::SeqCst);
+        self.completed
+            .store(true, std::sync::atomic::Ordering::SeqCst);
     }
 
     pub fn is_completed(&self) -> bool {
@@ -468,8 +471,6 @@ impl SyncResult {
         }
     }
 }
-
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncStatus {
@@ -581,9 +582,17 @@ impl RecoveryStatus {
 
 #[derive(Debug, Clone)]
 pub enum Credentials {
-    Password { username: String, password: String },
-    Token { token: String },
-    KeyPair { public_key: Vec<u8>, private_key: Vec<u8> },
+    Password {
+        username: String,
+        password: String,
+    },
+    Token {
+        token: String,
+    },
+    KeyPair {
+        public_key: Vec<u8>,
+        private_key: Vec<u8>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -638,7 +647,9 @@ impl ArchiveConfig {
 
     pub fn validate(&self) -> AegisResult<()> {
         if self.name.trim().is_empty() {
-            return Err(AegisError::InvalidConfig("archive name must not be empty".into()));
+            return Err(AegisError::InvalidConfig(
+                "archive name must not be empty".into(),
+            ));
         }
         if self.chunk_size < 4096 || self.chunk_size > 16 * 1024 * 1024 {
             return Err(AegisError::InvalidConfig(format!(
@@ -670,8 +681,6 @@ impl SnapshotDiff {
         }
     }
 }
-
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Manifest {

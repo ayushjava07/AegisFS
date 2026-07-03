@@ -152,10 +152,7 @@ impl ManifestStore for MemoryManifestStore {
                 .map(|r| r.clone());
 
             latest.ok_or_else(|| {
-                AegisError::Internal(format!(
-                    "no manifest found for archive: {}",
-                    archive_id
-                ))
+                AegisError::Internal(format!("no manifest found for archive: {}", archive_id))
             })
         })
     }
@@ -164,8 +161,6 @@ impl ManifestStore for MemoryManifestStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::id::*;
-    use crate::core::types::*;
 
     fn make_chunk_descriptor(offset: u64, size: u64) -> ChunkDescriptor {
         ChunkDescriptor::new(ChunkId::nil(), offset, size)

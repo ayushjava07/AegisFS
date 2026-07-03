@@ -145,38 +145,36 @@ impl AuthProvider for SimpleAuthProvider {
         let user_perms = self.user_permissions.clone();
         let active_tokens = Arc::clone(&self.active_tokens);
         let creds_clone = match credentials {
-            Credentials::Password { username, password } => {
-                Credentials::Password {
-                    username: username.clone(),
-                    password: password.clone(),
-                }
-            }
-            Credentials::Token { token } => {
-                Credentials::Token { token: token.clone() }
-            }
-            Credentials::KeyPair { public_key, private_key } => {
-                Credentials::KeyPair {
-                    public_key: public_key.clone(),
-                    private_key: private_key.clone(),
-                }
-            }
+            Credentials::Password { username, password } => Credentials::Password {
+                username: username.clone(),
+                password: password.clone(),
+            },
+            Credentials::Token { token } => Credentials::Token {
+                token: token.clone(),
+            },
+            Credentials::KeyPair {
+                public_key,
+                private_key,
+            } => Credentials::KeyPair {
+                public_key: public_key.clone(),
+                private_key: private_key.clone(),
+            },
         };
         Box::pin(async move {
             match creds_clone {
                 Credentials::Password { username, password } => {
-                    let expected_hash =
-                        pw_hashes
-                            .get(&username)
-                            .ok_or_else(|| {
-                                AegisError::AuthenticationError("invalid credentials".into())
-                            })?;
+                    let expected_hash = pw_hashes.get(&username).ok_or_else(|| {
+                        AegisError::AuthenticationError("invalid credentials".into())
+                    })?;
                     let actual_hash = {
                         let mut hasher = Sha256::new();
                         hasher.update(password.as_bytes());
                         hex::encode(hasher.finalize())
                     };
                     if *expected_hash != actual_hash {
-                        return Err(AegisError::AuthenticationError("invalid credentials".into()));
+                        return Err(AegisError::AuthenticationError(
+                            "invalid credentials".into(),
+                        ));
                     }
 
                     let now = Utc::now();
@@ -193,17 +191,25 @@ impl AuthProvider for SimpleAuthProvider {
                         .insert(token.session_id, token.clone());
                     Ok(token)
                 }
-                Credentials::Token { token: _ } => {
-                    Err(AegisError::AuthenticationError("token auth not implemented".into()))
-                }
-                Credentials::KeyPair { public_key: _, private_key: _ } => {
-                    Err(AegisError::AuthenticationError("keypair auth not implemented".into()))
-                }
+                Credentials::Token { token: _ } => Err(AegisError::AuthenticationError(
+                    "token auth not implemented".into(),
+                )),
+                Credentials::KeyPair {
+                    public_key: _,
+                    private_key: _,
+                } => Err(AegisError::AuthenticationError(
+                    "keypair auth not implemented".into(),
+                )),
             }
         })
     }
 
-    fn authorize(&self, token: &AuthToken, action: &str, resource: &str) -> BoxFuture<'_, AegisResult<bool>> {
+    fn authorize(
+        &self,
+        token: &AuthToken,
+        action: &str,
+        resource: &str,
+    ) -> BoxFuture<'_, AegisResult<bool>> {
         let revoked = Arc::clone(&self.revoked_tokens);
         let active = Arc::clone(&self.active_tokens);
 
@@ -228,7 +234,9 @@ impl AuthProvider for SimpleAuthProvider {
             let wildcard = format!("{}:*", action);
             let admin = "admin:*".to_string();
 
-            Ok(t.permissions.iter().any(|p| *p == perm_str || *p == wildcard || *p == admin))
+            Ok(t.permissions
+                .iter()
+                .any(|p| *p == perm_str || *p == wildcard || *p == admin))
         })
     }
 
@@ -273,9 +281,7 @@ mod tests {
         let token = provider.authenticate(&admin_creds()).await.unwrap();
         assert_eq!(token.identity, "admin");
         assert!(!token.is_expired());
-        assert!(token
-            .permissions
-            .contains(&"read:*".to_string()));
+        assert!(token.permissions.contains(&"read:*".to_string()));
     }
 
     #[tokio::test]
@@ -358,13 +364,8 @@ mod tests {
 
     #[tokio::test]
     async fn token_expiry() {
-        use std::sync::Arc;
         let mut provider = test_provider();
-        provider.add_user(
-            "expiry_test",
-            "test",
-            vec!["read:*".to_string()],
-        );
+        provider.add_user("expiry_test", "test", vec!["read:*".to_string()]);
         let provider = provider;
         let mut token = provider
             .authenticate(&Credentials::Password {
@@ -388,25 +389,6 @@ mod tests {
         provider.revoke(&token).await.unwrap();
         let result = provider.revoke(&token).await;
         assert!(result.is_ok());
-    }
-
-    #[derive(Debug, Clone)]
-    struct TestAcl {
-        entries: Vec<AclEntry>,
-    }
-
-    impl TestAcl {
-        fn check(&self, principal: &str, action: &str, resource: &str) -> bool {
-            let mut granted = false;
-            for entry in &self.entries {
-                if (entry.principal == principal || entry.principal == "*")
-                    && entry.permission.matches(action, resource)
-                {
-                    granted = entry.grant;
-                }
-            }
-            granted
-        }
     }
 
     #[test]

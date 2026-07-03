@@ -12,8 +12,6 @@ use crate::core::error::{AegisError, AegisResult};
 use crate::core::traits::EncryptionProvider;
 use crate::core::types::EncryptionAlgorithm;
 
-
-
 // ---------------------------------------------------------------------------
 // Key Types
 // ---------------------------------------------------------------------------
@@ -360,8 +358,7 @@ mod tests {
     #[cfg(feature = "chacha-encryption")]
     #[test]
     fn test_chacha20poly1305_roundtrip() {
-        let provider =
-            ChaCha20Poly1305Provider::new(test_key(), b"key-2".to_vec());
+        let provider = ChaCha20Poly1305Provider::new(test_key(), b"key-2".to_vec());
         let plaintext = b"Hello, AegisFS ChaCha20-Poly1305!";
         let encrypted = provider.encrypt(plaintext).unwrap();
         let decrypted = provider.decrypt(&encrypted).unwrap();
@@ -371,8 +368,7 @@ mod tests {
     #[cfg(feature = "chacha-encryption")]
     #[test]
     fn test_chacha20poly1305_empty_data() {
-        let provider =
-            ChaCha20Poly1305Provider::new(test_key(), b"key-2".to_vec());
+        let provider = ChaCha20Poly1305Provider::new(test_key(), b"key-2".to_vec());
         let encrypted = provider.encrypt(b"").unwrap();
         assert!(encrypted.len() >= 12);
         let decrypted = provider.decrypt(&encrypted).unwrap();
@@ -382,8 +378,7 @@ mod tests {
     #[cfg(feature = "chacha-encryption")]
     #[test]
     fn test_chacha20poly1305_various_sizes() {
-        let provider =
-            ChaCha20Poly1305Provider::new(test_key(), b"key-2".to_vec());
+        let provider = ChaCha20Poly1305Provider::new(test_key(), b"key-2".to_vec());
         let sizes = [1, 16, 255, 256, 1024, 4096, 65535];
         for &size in &sizes {
             let data: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
@@ -397,10 +392,8 @@ mod tests {
     #[cfg(feature = "chacha-encryption")]
     #[test]
     fn test_chacha20poly1305_wrong_key_fails() {
-        let provider_a =
-            ChaCha20Poly1305Provider::new(test_key(), b"key-a".to_vec());
-        let provider_b =
-            ChaCha20Poly1305Provider::new(alt_key(), b"key-b".to_vec());
+        let provider_a = ChaCha20Poly1305Provider::new(test_key(), b"key-a".to_vec());
+        let provider_b = ChaCha20Poly1305Provider::new(alt_key(), b"key-b".to_vec());
         let plaintext = b"secret data";
         let encrypted = provider_a.encrypt(plaintext).unwrap();
         let result = provider_b.decrypt(&encrypted);
@@ -630,10 +623,7 @@ mod tests {
     #[test]
     fn test_registry_register_and_get() {
         let mut registry = EncryptionRegistry::new();
-        let provider = Arc::new(Aes256GcmProvider::new(
-            test_key(),
-            b"key-1".to_vec(),
-        ));
+        let provider = Arc::new(Aes256GcmProvider::new(test_key(), b"key-1".to_vec()));
         registry.register("aes-256-gcm", provider.clone());
 
         assert!(!registry.is_empty());
@@ -653,14 +643,8 @@ mod tests {
     #[test]
     fn test_registry_multiple_providers() {
         let mut registry = EncryptionRegistry::new();
-        let aes = Arc::new(Aes256GcmProvider::new(
-            test_key(),
-            b"key-1".to_vec(),
-        ));
-        let chacha = Arc::new(ChaCha20Poly1305Provider::new(
-            test_key(),
-            b"key-2".to_vec(),
-        ));
+        let aes = Arc::new(Aes256GcmProvider::new(test_key(), b"key-1".to_vec()));
+        let chacha = Arc::new(ChaCha20Poly1305Provider::new(test_key(), b"key-2".to_vec()));
         let noop = Arc::new(NoopEncryption);
 
         registry.register("aes-256-gcm", aes);
@@ -680,14 +664,8 @@ mod tests {
     #[test]
     fn test_registry_overwrite() {
         let mut registry = EncryptionRegistry::new();
-        let provider1 = Arc::new(Aes256GcmProvider::new(
-            test_key(),
-            b"key-1".to_vec(),
-        ));
-        let provider2 = Arc::new(Aes256GcmProvider::new(
-            alt_key(),
-            b"key-2".to_vec(),
-        ));
+        let provider1 = Arc::new(Aes256GcmProvider::new(test_key(), b"key-1".to_vec()));
+        let provider2 = Arc::new(Aes256GcmProvider::new(alt_key(), b"key-2".to_vec()));
         registry.register("aes-256-gcm", provider1);
         registry.register("aes-256-gcm", provider2);
 
@@ -700,19 +678,13 @@ mod tests {
     #[test]
     fn test_registry_unregister() {
         let mut registry = EncryptionRegistry::new();
-        let provider = Arc::new(Aes256GcmProvider::new(
-            test_key(),
-            b"key-1".to_vec(),
-        ));
+        let provider = Arc::new(Aes256GcmProvider::new(test_key(), b"key-1".to_vec()));
         registry.register("aes-256-gcm", provider);
         assert_eq!(registry.len(), 1);
 
         let removed = registry.unregister("aes-256-gcm");
         assert!(removed.is_some());
-        assert_eq!(
-            removed.unwrap().algorithm(),
-            EncryptionAlgorithm::Aes256Gcm
-        );
+        assert_eq!(removed.unwrap().algorithm(), EncryptionAlgorithm::Aes256Gcm);
         assert!(registry.is_empty());
 
         let not_found = registry.unregister("nonexistent");
@@ -723,10 +695,7 @@ mod tests {
     #[test]
     fn test_registry_provider_usage() {
         let mut registry = EncryptionRegistry::new();
-        let provider = Arc::new(Aes256GcmProvider::new(
-            test_key(),
-            b"key-1".to_vec(),
-        ));
+        let provider = Arc::new(Aes256GcmProvider::new(test_key(), b"key-1".to_vec()));
         registry.register("aes-256-gcm", provider);
 
         let retrieved = registry.get("aes-256-gcm").unwrap();
@@ -740,14 +709,8 @@ mod tests {
     #[test]
     fn test_registry_cross_algorithm() {
         let mut registry = EncryptionRegistry::new();
-        let aes = Arc::new(Aes256GcmProvider::new(
-            test_key(),
-            b"key-1".to_vec(),
-        ));
-        let chacha = Arc::new(ChaCha20Poly1305Provider::new(
-            alt_key(),
-            b"key-2".to_vec(),
-        ));
+        let aes = Arc::new(Aes256GcmProvider::new(test_key(), b"key-1".to_vec()));
+        let chacha = Arc::new(ChaCha20Poly1305Provider::new(alt_key(), b"key-2".to_vec()));
         registry.register("aes-256-gcm", aes);
         registry.register("chacha20-poly1305", chacha);
 
@@ -857,8 +820,7 @@ mod tests {
     #[test]
     fn test_key_identifier_chacha() {
         let key_id = b"chacha-key-v1";
-        let provider =
-            ChaCha20Poly1305Provider::new(test_key(), key_id.to_vec());
+        let provider = ChaCha20Poly1305Provider::new(test_key(), key_id.to_vec());
         assert_eq!(provider.key_identifier(), key_id);
     }
 }

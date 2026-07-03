@@ -190,10 +190,8 @@ impl Backoff {
         }
         self.attempts += 1;
 
-        let base = self
-            .initial_delay
-            .as_secs_f64()
-            * self.multiplier.powi((self.attempts - 1) as i32);
+        let base =
+            self.initial_delay.as_secs_f64() * self.multiplier.powi((self.attempts - 1) as i32);
         let base = base.min(self.max_delay.as_secs_f64());
 
         let jitter_range = base * self.jitter;
@@ -305,7 +303,11 @@ impl PathUtil {
         let normalized = Self::normalize(path);
         let trimmed = normalized.trim_end_matches('/');
         if let Some(pos) = trimmed.rfind('/') {
-            let parent = if pos == 0 { "/".to_string() } else { trimmed[..pos].to_string() };
+            let parent = if pos == 0 {
+                "/".to_string()
+            } else {
+                trimmed[..pos].to_string()
+            };
             Some(parent)
         } else {
             None
@@ -337,7 +339,13 @@ impl TimeUtil {
     pub fn format_duration(duration: Duration) -> String {
         let secs = duration.as_secs();
         if secs >= 86400 {
-            format!("{}d {}h {}m {}s", secs / 86400, (secs % 86400) / 3600, (secs % 3600) / 60, secs % 60)
+            format!(
+                "{}d {}h {}m {}s",
+                secs / 86400,
+                (secs % 86400) / 3600,
+                (secs % 3600) / 60,
+                secs % 60
+            )
         } else if secs >= 3600 {
             format!("{}h {}m {}s", secs / 3600, (secs % 3600) / 60, secs % 60)
         } else if secs >= 60 {
@@ -361,14 +369,30 @@ impl TimeUtil {
 pub struct IdUtil;
 
 impl IdUtil {
-    pub fn new_node_id() -> NodeId { NodeId::new() }
-    pub fn new_snapshot_id() -> SnapshotId { SnapshotId::new() }
-    pub fn new_archive_id() -> ArchiveId { ArchiveId::new() }
-    pub fn new_manifest_id() -> ManifestId { ManifestId::new() }
-    pub fn new_task_id() -> TaskId { TaskId::new() }
-    pub fn new_session_id() -> SessionId { SessionId::new() }
-    pub fn chunk_id_from_data(data: &[u8]) -> ChunkId { ChunkId::from_data(data) }
-    pub fn hash_from_data(data: &[u8]) -> HashValue { HashValue::sha256(data) }
+    pub fn new_node_id() -> NodeId {
+        NodeId::new()
+    }
+    pub fn new_snapshot_id() -> SnapshotId {
+        SnapshotId::new()
+    }
+    pub fn new_archive_id() -> ArchiveId {
+        ArchiveId::new()
+    }
+    pub fn new_manifest_id() -> ManifestId {
+        ManifestId::new()
+    }
+    pub fn new_task_id() -> TaskId {
+        TaskId::new()
+    }
+    pub fn new_session_id() -> SessionId {
+        SessionId::new()
+    }
+    pub fn chunk_id_from_data(data: &[u8]) -> ChunkId {
+        ChunkId::from_data(data)
+    }
+    pub fn hash_from_data(data: &[u8]) -> HashValue {
+        HashValue::sha256(data)
+    }
 }
 
 pub struct MemoryBlock {
@@ -419,9 +443,15 @@ impl MemoryPool for SimpleMemoryPool {
         }
     }
 
-    fn reset(&self) { self.pool.lock().clear(); }
-    fn capacity(&self) -> usize { self.max_blocks * self.block_size }
-    fn used(&self) -> usize { self.pool.lock().len() * self.block_size }
+    fn reset(&self) {
+        self.pool.lock().clear();
+    }
+    fn capacity(&self) -> usize {
+        self.max_blocks * self.block_size
+    }
+    fn used(&self) -> usize {
+        self.pool.lock().len() * self.block_size
+    }
 }
 
 #[cfg(test)]
@@ -484,15 +514,22 @@ mod tests {
     #[tokio::test]
     async fn test_retry_success() {
         let count = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
-        let retry = Retry::new(Backoff::new().with_initial_delay(Duration::from_millis(1)).with_max_attempts(5));
+        let retry = Retry::new(
+            Backoff::new()
+                .with_initial_delay(Duration::from_millis(1))
+                .with_max_attempts(5),
+        );
         let count_clone = count.clone();
         let result = retry
             .execute(move || {
                 let c = count_clone.clone();
                 async move {
                     let val = c.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
-                    if val < 3 { Err(AegisError::Internal("not yet".into())) }
-                    else { Ok(42) }
+                    if val < 3 {
+                        Err(AegisError::Internal("not yet".into()))
+                    } else {
+                        Ok(42)
+                    }
                 }
             })
             .await;
@@ -502,7 +539,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_retry_exhausted() {
-        let retry = Retry::new(Backoff::new().with_initial_delay(Duration::from_millis(1)).with_max_attempts(3));
+        let retry = Retry::new(
+            Backoff::new()
+                .with_initial_delay(Duration::from_millis(1))
+                .with_max_attempts(3),
+        );
         let result = retry
             .execute(|| async { Err::<(), _>(AegisError::Internal("fail".into())) })
             .await;

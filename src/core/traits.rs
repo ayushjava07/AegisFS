@@ -64,7 +64,11 @@ pub trait MetadataIndex: Send + Sync {
     fn get_node(&self, id: &NodeId) -> BoxFuture<'_, AegisResult<Node>>;
     fn delete_node(&self, id: &NodeId) -> BoxFuture<'_, AegisResult<()>>;
     fn list_children(&self, parent_id: &NodeId) -> BoxFuture<'_, AegisResult<Vec<Node>>>;
-    fn find_by_name(&self, parent_id: &NodeId, name: &str) -> BoxFuture<'_, AegisResult<Option<Node>>>;
+    fn find_by_name(
+        &self,
+        parent_id: &NodeId,
+        name: &str,
+    ) -> BoxFuture<'_, AegisResult<Option<Node>>>;
     fn search(&self, query: &dyn MetadataQuery) -> BoxFuture<'_, AegisResult<Vec<Node>>>;
     fn len(&self) -> BoxFuture<'_, AegisResult<u64>>;
 }
@@ -79,7 +83,11 @@ pub trait MetadataQuery {
 
 pub trait JournalStore: Send + Sync {
     fn append(&self, entry: JournalEntry) -> BoxFuture<'_, AegisResult<u64>>;
-    fn read_after(&self, sequence: u64, limit: usize) -> BoxFuture<'_, AegisResult<Vec<JournalEntry>>>;
+    fn read_after(
+        &self,
+        sequence: u64,
+        limit: usize,
+    ) -> BoxFuture<'_, AegisResult<Vec<JournalEntry>>>;
     fn latest_sequence(&self) -> BoxFuture<'_, AegisResult<u64>>;
     fn truncate(&self, before_sequence: u64) -> BoxFuture<'_, AegisResult<()>>;
     fn replay(&self, handler: Box<dyn JournalHandler + Send>) -> BoxFuture<'_, AegisResult<u64>>;
@@ -90,7 +98,12 @@ pub trait JournalHandler {
 }
 
 pub trait VirtualFileSystem: Send + Sync {
-    fn create_node(&self, parent: &NodeId, name: &str, kind: NodeKind) -> BoxFuture<'_, AegisResult<NodeId>>;
+    fn create_node(
+        &self,
+        parent: &NodeId,
+        name: &str,
+        kind: NodeKind,
+    ) -> BoxFuture<'_, AegisResult<NodeId>>;
     fn delete_node(&self, node_id: &NodeId) -> BoxFuture<'_, AegisResult<()>>;
     fn read_node(&self, node_id: &NodeId) -> BoxFuture<'_, AegisResult<Node>>;
     fn write_node(&self, node_id: &NodeId, data: Bytes) -> BoxFuture<'_, AegisResult<()>>;
@@ -171,18 +184,31 @@ pub trait SnapshotStore: Send + Sync {
     fn delete_snapshot(&self, id: &SnapshotId) -> BoxFuture<'_, AegisResult<()>>;
     fn list_snapshots(&self, archive_id: &ArchiveId) -> BoxFuture<'_, AegisResult<Vec<Snapshot>>>;
     fn latest_snapshot(&self, archive_id: &ArchiveId) -> BoxFuture<'_, AegisResult<Snapshot>>;
-    fn snapshot_chain(&self, snapshot_id: &SnapshotId) -> BoxFuture<'_, AegisResult<Vec<Snapshot>>>;
+    fn snapshot_chain(&self, snapshot_id: &SnapshotId)
+        -> BoxFuture<'_, AegisResult<Vec<Snapshot>>>;
 }
 
 pub trait SyncEngine: Send + Sync {
-    fn sync_to_remote(&self, archive_id: &ArchiveId, direction: SyncDirection) -> BoxFuture<'_, AegisResult<SyncResult>>;
-    fn sync_snapshot(&self, snapshot_id: &SnapshotId, target: &str) -> BoxFuture<'_, AegisResult<SyncResult>>;
+    fn sync_to_remote(
+        &self,
+        archive_id: &ArchiveId,
+        direction: SyncDirection,
+    ) -> BoxFuture<'_, AegisResult<SyncResult>>;
+    fn sync_snapshot(
+        &self,
+        snapshot_id: &SnapshotId,
+        target: &str,
+    ) -> BoxFuture<'_, AegisResult<SyncResult>>;
     fn status(&self) -> BoxFuture<'_, AegisResult<SyncStatus>>;
     fn cancel(&self) -> BoxFuture<'_, AegisResult<()>>;
 }
 
 pub trait ReplicationEngine: Send + Sync {
-    fn replicate(&self, archive_id: &ArchiveId, target: &ReplicationTarget) -> BoxFuture<'_, AegisResult<ReplicationResult>>;
+    fn replicate(
+        &self,
+        archive_id: &ArchiveId,
+        target: &ReplicationTarget,
+    ) -> BoxFuture<'_, AegisResult<ReplicationResult>>;
     fn configure_replication(&self, config: ReplicationConfig) -> BoxFuture<'_, AegisResult<()>>;
     fn status(&self) -> BoxFuture<'_, AegisResult<ReplicationStatus>>;
 }
@@ -205,13 +231,25 @@ pub trait RecoveryManager: Send + Sync {
 }
 
 pub trait AuthProvider: Send + Sync {
-    fn authenticate<'a>(&'a self, credentials: &'a Credentials) -> BoxFuture<'a, AegisResult<AuthToken>>;
-    fn authorize<'a>(&'a self, token: &'a AuthToken, action: &'a str, resource: &'a str) -> BoxFuture<'a, AegisResult<bool>>;
+    fn authenticate<'a>(
+        &'a self,
+        credentials: &'a Credentials,
+    ) -> BoxFuture<'a, AegisResult<AuthToken>>;
+    fn authorize<'a>(
+        &'a self,
+        token: &'a AuthToken,
+        action: &'a str,
+        resource: &'a str,
+    ) -> BoxFuture<'a, AegisResult<bool>>;
     fn revoke<'a>(&'a self, token: &'a AuthToken) -> BoxFuture<'a, AegisResult<()>>;
 }
 
 pub trait ArchiveManager: Send + Sync {
-    fn create_archive(&self, name: &str, config: ArchiveConfig) -> BoxFuture<'_, AegisResult<ArchiveId>>;
+    fn create_archive(
+        &self,
+        name: &str,
+        config: ArchiveConfig,
+    ) -> BoxFuture<'_, AegisResult<ArchiveId>>;
     fn open_archive(&self, id: &ArchiveId) -> BoxFuture<'_, AegisResult<Box<dyn ArchiveHandle>>>;
     fn delete_archive(&self, id: &ArchiveId) -> BoxFuture<'_, AegisResult<()>>;
     fn seal_archive(&self, id: &ArchiveId) -> BoxFuture<'_, AegisResult<()>>;
@@ -230,11 +268,18 @@ pub trait ArchiveHandle: Send + Sync {
 }
 
 pub trait SnapshotManager: Send + Sync {
-    fn create(&self, labels: std::collections::HashMap<String, String>) -> BoxFuture<'_, AegisResult<SnapshotId>>;
+    fn create(
+        &self,
+        labels: std::collections::HashMap<String, String>,
+    ) -> BoxFuture<'_, AegisResult<SnapshotId>>;
     fn restore(&self, id: &SnapshotId) -> BoxFuture<'_, AegisResult<()>>;
     fn list(&self) -> BoxFuture<'_, AegisResult<Vec<Snapshot>>>;
     fn delete(&self, id: &SnapshotId) -> BoxFuture<'_, AegisResult<()>>;
-    fn diff(&self, base: &SnapshotId, target: &SnapshotId) -> BoxFuture<'_, AegisResult<SnapshotDiff>>;
+    fn diff(
+        &self,
+        base: &SnapshotId,
+        target: &SnapshotId,
+    ) -> BoxFuture<'_, AegisResult<SnapshotDiff>>;
 }
 
 pub trait IntegrityVerifier: Send + Sync {
@@ -257,7 +302,11 @@ pub trait Scheduler: Send + Sync {
     where
         T: Send + 'static,
         F: Future<Output = AegisResult<T>> + Send + 'static;
-    fn schedule(&self, task: BoxFuture<'static, AegisResult<()>>, priority: TaskPriority) -> BoxFuture<'_, AegisResult<TaskId>>;
+    fn schedule(
+        &self,
+        task: BoxFuture<'static, AegisResult<()>>,
+        priority: TaskPriority,
+    ) -> BoxFuture<'_, AegisResult<TaskId>>;
     fn cancel(&self, task_id: TaskId) -> BoxFuture<'_, AegisResult<()>>;
     fn shutdown(&self) -> BoxFuture<'_, AegisResult<()>>;
 }

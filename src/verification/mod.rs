@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 use chrono::Utc;
 
@@ -36,8 +36,9 @@ impl IntegrityVerifier for IntegrityVerifierImpl {
     fn verify_manifest(&self, manifest: &Manifest) -> BoxFuture<'_, AegisResult<bool>> {
         let manifest = manifest.clone();
         Box::pin(async move {
-            let data = bincode::serialize(&manifest)
-                .map_err(|e| AegisError::SerializationError(format!("failed to serialize manifest: {}", e)))?;
+            let data = bincode::serialize(&manifest).map_err(|e| {
+                AegisError::SerializationError(format!("failed to serialize manifest: {}", e))
+            })?;
             let _root_hash = HashValue::sha256(&data);
             Ok(true)
         })
@@ -218,14 +219,12 @@ impl IntegrityScanner {
         let callback = self.callback.clone();
 
         self.handle = Some(thread::spawn(move || {
-            let rt = tokio::runtime::Runtime::new()
-                .expect("failed to create tokio runtime for scanner");
+            let rt =
+                tokio::runtime::Runtime::new().expect("failed to create tokio runtime for scanner");
 
             while running.load(Ordering::SeqCst) {
                 let start = Instant::now();
-                let result = rt.block_on(async {
-                    scan_batch(&storage, batch_size).await
-                });
+                let result = rt.block_on(async { scan_batch(&storage, batch_size).await });
 
                 match result {
                     Ok((verified, failed)) => {
@@ -270,10 +269,7 @@ impl Drop for IntegrityScanner {
     }
 }
 
-async fn scan_batch(
-    storage: &Arc<dyn ChunkStorage>,
-    batch_size: usize,
-) -> AegisResult<(u64, u64)> {
+async fn scan_batch(storage: &Arc<dyn ChunkStorage>, batch_size: usize) -> AegisResult<(u64, u64)> {
     let chunk_ids = storage.list_chunks().await?;
     let mut verified = 0u64;
     let mut failed = 0u64;
@@ -300,10 +296,10 @@ async fn scan_batch(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::traits::MetadataQuery;
+    use bytes::Bytes;
     use std::collections::HashMap;
     use std::sync::Mutex;
-    use bytes::Bytes;
-    use crate::core::traits::MetadataQuery;
 
     struct MockChunkStorage {
         chunks: Mutex<HashMap<ChunkId, Chunk>>,
@@ -341,9 +337,9 @@ mod tests {
         fn read_chunk(&self, id: &ChunkId) -> BoxFuture<'_, AegisResult<Chunk>> {
             let id = *id;
             let chunk = self.chunks.lock().unwrap().get(&id).cloned();
-            Box::pin(async move {
-                chunk.ok_or_else(|| AegisError::ChunkNotFound(format!("{}", id)))
-            })
+            Box::pin(
+                async move { chunk.ok_or_else(|| AegisError::ChunkNotFound(format!("{}", id))) },
+            )
         }
 
         fn delete_chunk(&self, id: &ChunkId) -> BoxFuture<'_, AegisResult<()>> {
@@ -364,13 +360,7 @@ mod tests {
         }
 
         fn total_size(&self) -> BoxFuture<'_, AegisResult<u64>> {
-            let size: u64 = self
-                .chunks
-                .lock()
-                .unwrap()
-                .values()
-                .map(|c| c.size)
-                .sum();
+            let size: u64 = self.chunks.lock().unwrap().values().map(|c| c.size).sum();
             Box::pin(async move { Ok(size) })
         }
 
@@ -416,9 +406,7 @@ mod tests {
         fn get_node(&self, id: &NodeId) -> BoxFuture<'_, AegisResult<Node>> {
             let id = *id;
             let node = self.nodes.lock().unwrap().get(&id).cloned();
-            Box::pin(async move {
-                node.ok_or_else(|| AegisError::NodeNotFound(format!("{}", id)))
-            })
+            Box::pin(async move { node.ok_or_else(|| AegisError::NodeNotFound(format!("{}", id))) })
         }
 
         fn delete_node(&self, id: &NodeId) -> BoxFuture<'_, AegisResult<()>> {
@@ -434,11 +422,7 @@ mod tests {
             let children = self.children.lock().unwrap();
             let result: Vec<Node> = children
                 .get(&parent_id)
-                .map(|ids| {
-                    ids.iter()
-                        .filter_map(|id| nodes.get(id).cloned())
-                        .collect()
-                })
+                .map(|ids| ids.iter().filter_map(|id| nodes.get(id).cloned()).collect())
                 .unwrap_or_default();
             Box::pin(async move { Ok(result) })
         }
@@ -454,20 +438,12 @@ mod tests {
             let children = self.children.lock().unwrap();
             let result = children.get(&parent_id).and_then(|ids| {
                 ids.iter()
-                    .find_map(|id| {
-                        nodes
-                            .get(id)
-                            .filter(|n| n.name == name)
-                            .cloned()
-                    })
+                    .find_map(|id| nodes.get(id).filter(|n| n.name == name).cloned())
             });
             Box::pin(async move { Ok(result) })
         }
 
-        fn search(
-            &self,
-            _query: &dyn MetadataQuery,
-        ) -> BoxFuture<'_, AegisResult<Vec<Node>>> {
+        fn search(&self, _query: &dyn MetadataQuery) -> BoxFuture<'_, AegisResult<Vec<Node>>> {
             Box::pin(async move { Ok(Vec::new()) })
         }
 
@@ -550,8 +526,8 @@ mod tests {
 
         let chunk1 = make_chunk(b"chunk-one-data");
         let chunk2 = make_chunk(b"chunk-two-data");
-        storage.store_chunk(chunk1);
-        storage.store_chunk(chunk2);
+        storage.insert(chunk1);
+        storage.insert(chunk2);
 
         let verifier = IntegrityVerifierImpl::new(storage, metadata);
 
@@ -570,8 +546,8 @@ mod tests {
         let chunk1 = make_chunk(b"first-chunk");
         let chunk2 = make_chunk(b"second-chunk");
         let id1 = chunk1.id;
-        storage.store_chunk(chunk1);
-        storage.store_chunk(chunk2);
+        storage.insert(chunk1);
+        storage.insert(chunk2);
         storage.corrupt(&id1);
 
         let verifier = IntegrityVerifierImpl::new(storage, metadata);
@@ -624,11 +600,11 @@ mod tests {
         let root_id = root.id;
         let sub_id = sub.id;
 
-        metadata.put_node(root);
-        metadata.put_node(file1.clone());
-        metadata.put_node(file2.clone());
-        metadata.put_node(sub);
-        metadata.put_node(file3.clone());
+        metadata.insert(root);
+        metadata.insert(file1.clone());
+        metadata.insert(file2.clone());
+        metadata.insert(sub);
+        metadata.insert(file3.clone());
 
         metadata.add_child(root_id, file1.id);
         metadata.add_child(root_id, file2.id);
@@ -636,7 +612,7 @@ mod tests {
         metadata.add_child(sub_id, file3.id);
 
         let chunk = make_chunk(b"some-chunk-data");
-        storage.store_chunk(chunk);
+        storage.insert(chunk);
 
         let verifier = IntegrityVerifierImpl::new(storage, metadata);
 
@@ -661,14 +637,14 @@ mod tests {
 
         let root_id = root.id;
 
-        metadata.put_node(root);
-        metadata.put_node(file_bad.clone());
-        metadata.put_node(file_good.clone());
+        metadata.insert(root);
+        metadata.insert(file_bad.clone());
+        metadata.insert(file_good.clone());
         metadata.add_child(root_id, file_bad.id);
         metadata.add_child(root_id, file_good.id);
 
         let chunk = make_chunk(b"some-data");
-        storage.store_chunk(chunk);
+        storage.insert(chunk);
 
         let verifier = IntegrityVerifierImpl::new(storage, metadata);
 
@@ -685,12 +661,7 @@ mod tests {
         let storage = Arc::new(MockChunkStorage::new());
         let callback: ScanCallback = Arc::new(|_| {});
 
-        let scanner = IntegrityScanner::new(
-            storage,
-            Duration::from_secs(60),
-            100,
-            callback,
-        );
+        let scanner = IntegrityScanner::new(storage, Duration::from_secs(60), 100, callback);
 
         assert_eq!(scanner.interval(), Duration::from_secs(60));
         assert_eq!(scanner.batch_size(), 100);
@@ -703,7 +674,7 @@ mod tests {
         let metadata = Arc::new(MockMetadataIndex::new());
 
         let chunk = make_chunk(b"timing-test-data");
-        storage.store_chunk(chunk);
+        storage.insert(chunk);
 
         let verifier = IntegrityVerifierImpl::new(storage, metadata);
         let rt = tokio::runtime::Runtime::new().unwrap();

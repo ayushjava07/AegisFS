@@ -137,9 +137,9 @@ impl VirtualFileSystem for VirtualFileSystemImpl {
         let parents = self.parents.clone();
         let node_id = *node_id;
 
-        Box::pin(async move {
-            Self::delete_node_recursive(metadata, children, parents, node_id).await
-        })
+        Box::pin(
+            async move { Self::delete_node_recursive(metadata, children, parents, node_id).await },
+        )
     }
 
     fn read_node(&self, node_id: &NodeId) -> BoxFuture<'_, AegisResult<Node>> {
@@ -257,10 +257,7 @@ impl VirtualFileSystem for VirtualFileSystemImpl {
                 return Ok(NodeId::root());
             }
 
-            let components: Vec<&str> = path
-                .split('/')
-                .filter(|s| !s.is_empty())
-                .collect();
+            let components: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
 
             let mut current_id = NodeId::root();
 
@@ -307,10 +304,7 @@ impl VirtualFileSystem for VirtualFileSystemImpl {
                 return metadata.get_node(&NodeId::root()).await.map(|_| true);
             }
 
-            let components: Vec<&str> = path
-                .split('/')
-                .filter(|s| !s.is_empty())
-                .collect();
+            let components: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
 
             let mut current_id = NodeId::root();
 
@@ -405,11 +399,7 @@ impl PathResolver {
         Ok(current_id)
     }
 
-    pub async fn resolve_relative(
-        &self,
-        base: NodeId,
-        path: &str,
-    ) -> AegisResult<NodeId> {
+    pub async fn resolve_relative(&self, base: NodeId, path: &str) -> AegisResult<NodeId> {
         if path.is_empty() {
             return Ok(base);
         }
@@ -496,11 +486,7 @@ impl<'a> NodeTreeWalker<'a> {
         Ok(())
     }
 
-    pub async fn walk_children<F>(
-        &self,
-        parent_id: NodeId,
-        mut callback: F,
-    ) -> AegisResult<()>
+    pub async fn walk_children<F>(&self, parent_id: NodeId, mut callback: F) -> AegisResult<()>
     where
         F: FnMut(&Node) -> AegisResult<()>,
     {
@@ -629,12 +615,7 @@ mod tests {
 
         fn total_size(&self) -> BoxFuture<'_, AegisResult<u64>> {
             let chunks = self.chunks.clone();
-            Box::pin(async move {
-                Ok(chunks
-                    .iter()
-                    .map(|r| r.size)
-                    .sum())
-            })
+            Box::pin(async move { Ok(chunks.iter().map(|r| r.size).sum()) })
         }
 
         fn chunk_count(&self) -> BoxFuture<'_, AegisResult<u64>> {
@@ -648,7 +629,11 @@ mod tests {
         let storage = Arc::new(InMemoryChunkStorage::new()) as Arc<dyn ChunkStorage>;
         let chunker = Arc::new(FixedSizeChunker::new(1024)) as Arc<dyn Chunker>;
         let dedup_index = Arc::new(MemoryDedupIndex::new()) as Arc<dyn DedupIndex>;
-        let dedup = Arc::new(DedupEngine::new(dedup_index, chunker.clone(), storage.clone()));
+        let dedup = Arc::new(DedupEngine::new(
+            dedup_index,
+            chunker.clone(),
+            storage.clone(),
+        ));
         VirtualFileSystemImpl::new(metadata, storage, dedup)
     }
 
@@ -671,24 +656,14 @@ mod tests {
         }
     }
 
-    async fn create_dir(
-        vfs: &VirtualFileSystemImpl,
-        parent: &NodeId,
-        name: &str,
-    ) -> NodeId {
+    async fn create_dir(vfs: &VirtualFileSystemImpl, parent: &NodeId, name: &str) -> NodeId {
         vfs.create_node(parent, name, NodeKind::Directory)
             .await
             .unwrap()
     }
 
-    async fn create_file(
-        vfs: &VirtualFileSystemImpl,
-        parent: &NodeId,
-        name: &str,
-    ) -> NodeId {
-        vfs.create_node(parent, name, NodeKind::File)
-            .await
-            .unwrap()
+    async fn create_file(vfs: &VirtualFileSystemImpl, parent: &NodeId, name: &str) -> NodeId {
+        vfs.create_node(parent, name, NodeKind::File).await.unwrap()
     }
 
     #[tokio::test]
@@ -795,9 +770,7 @@ mod tests {
         let root_id = NodeId::root();
         let dir_id = create_dir(&vfs, &root_id, "mydir").await;
 
-        let result = vfs
-            .write_node(&dir_id, Bytes::from("data"))
-            .await;
+        let result = vfs.write_node(&dir_id, Bytes::from("data")).await;
         assert!(result.is_err());
     }
 
@@ -1022,9 +995,7 @@ mod tests {
         let root_id = NodeId::root();
         let file_id = create_file(&vfs, &root_id, "not_a_dir.txt").await;
 
-        let result = vfs
-            .create_node(&file_id, "child", NodeKind::File)
-            .await;
+        let result = vfs.create_node(&file_id, "child", NodeKind::File).await;
         assert!(result.is_err());
     }
 
@@ -1068,9 +1039,9 @@ mod tests {
         for i in 0..10 {
             let vfs = vfs.clone();
             let data = Bytes::from(vec![i as u8; 1000]);
-            handles.push(tokio::spawn(async move {
-                vfs.write_node(&file_id, data).await
-            }));
+            handles.push(tokio::spawn(
+                async move { vfs.write_node(&file_id, data).await },
+            ));
         }
 
         for h in handles {
@@ -1267,7 +1238,10 @@ mod tests {
         let level3 = create_dir(&vfs, &level2, "level3").await;
         let file_id = create_file(&vfs, &level3, "deep.txt").await;
 
-        let resolved = vfs.resolve_path("/level1/level2/level3/deep.txt").await.unwrap();
+        let resolved = vfs
+            .resolve_path("/level1/level2/level3/deep.txt")
+            .await
+            .unwrap();
         assert_eq!(resolved, file_id);
 
         let l1_children = vfs.list_directory(&root_id).await.unwrap();

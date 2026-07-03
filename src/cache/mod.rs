@@ -482,7 +482,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicI32;
 
     // -----------------------------------------------------------------------
     // LruMetadataCache tests
@@ -919,9 +918,8 @@ mod tests {
 
     #[test]
     fn test_two_tier_concurrent_access() {
-        let store: Arc<dyn BackingStore<String, i32>> = Arc::new(|key: &String| {
-            Ok(Some(key.len() as i32))
-        });
+        let store: Arc<dyn BackingStore<String, i32>> =
+            Arc::new(|key: &String| Ok(Some(key.len() as i32)));
 
         let cache = Arc::new(TwoTierCache::with_capacity(50, store));
         let mut handles = Vec::new();

@@ -1,16 +1,15 @@
-pub mod index;
 mod bloom;
+pub mod index;
 
 use std::sync::Arc;
 
-use crate::core::error::{AegisError, AegisResult};
+use crate::core::error::AegisResult;
 use crate::core::id::ChunkId;
 use crate::core::traits::{BoxFuture, ChunkStorage, Chunker, DedupIndex};
 use crate::core::types::{Chunk, ChunkDescriptor, HashValue};
 
-pub use index::MemoryDedupIndex;
 pub use bloom::DedupBloomFilter;
-
+pub use index::MemoryDedupIndex;
 
 pub struct DedupEngine {
     index: Arc<dyn DedupIndex>,
@@ -117,12 +116,7 @@ pub struct DedupStats {
 }
 
 impl DedupStats {
-    pub fn new(
-        total_chunks: u64,
-        unique_chunks: u64,
-        total_size: u64,
-        deduped_size: u64,
-    ) -> Self {
+    pub fn new(total_chunks: u64, unique_chunks: u64, total_size: u64, deduped_size: u64) -> Self {
         let duplicate_count = total_chunks.saturating_sub(unique_chunks);
         let dedup_ratio = if total_chunks > 0 {
             duplicate_count as f64 / total_chunks as f64
@@ -172,6 +166,7 @@ impl DedupIndex for NullDedupIndex {
 mod tests {
     use super::*;
     use crate::chunking::FixedSizeChunker;
+    use crate::core::error::AegisError;
     use crate::core::traits::DedupIndex;
     use std::sync::Arc;
 
@@ -251,9 +246,9 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().unwrap();
 
         rt.block_on(async {
-            assert!(index.contains(&hash).await.unwrap() == false);
+            assert!(!index.contains(&hash).await.unwrap());
             assert!(index.insert(&hash, &ChunkId::nil()).await.unwrap());
-            assert!(index.contains(&hash).await.unwrap() == false);
+            assert!(!index.contains(&hash).await.unwrap());
             assert!(index.remove(&hash).await.is_ok());
             assert_eq!(index.len().await.unwrap(), 0);
         });
@@ -282,6 +277,9 @@ mod tests {
         let dups = engine.find_duplicates(&data).await.unwrap();
         // All chunks should be found as duplicates since the data is identical
         assert!(!dups.is_empty(), "duplicates should be found");
-        assert!(dups.len() <= 4, "at most 4 chunks in 256 bytes with 64-byte chunker");
+        assert!(
+            dups.len() <= 4,
+            "at most 4 chunks in 256 bytes with 64-byte chunker"
+        );
     }
 }

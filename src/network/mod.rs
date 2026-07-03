@@ -28,9 +28,9 @@ impl NetworkTransport for TcpTransport {
     fn connect(&self, endpoint: &str) -> BoxFuture<'_, AegisResult<Box<dyn Connection>>> {
         let endpoint = endpoint.to_string();
         Box::pin(async move {
-            let stream = TcpStream::connect(&endpoint)
-                .await
-                .map_err(|e| AegisError::NetworkError(format!("connect failed to {}: {}", endpoint, e)))?;
+            let stream = TcpStream::connect(&endpoint).await.map_err(|e| {
+                AegisError::NetworkError(format!("connect failed to {}: {}", endpoint, e))
+            })?;
             debug!("connected to {}", endpoint);
             Ok(Box::new(TcpConnection::new(stream)) as Box<dyn Connection>)
         })
@@ -39,9 +39,9 @@ impl NetworkTransport for TcpTransport {
     fn bind(&self, address: &str) -> BoxFuture<'_, AegisResult<Box<dyn Listener>>> {
         let address = address.to_string();
         Box::pin(async move {
-            let listener = TokioListener::bind(&address)
-                .await
-                .map_err(|e| AegisError::NetworkError(format!("bind failed on {}: {}", address, e)))?;
+            let listener = TokioListener::bind(&address).await.map_err(|e| {
+                AegisError::NetworkError(format!("bind failed on {}: {}", address, e))
+            })?;
             let local = listener
                 .local_addr()
                 .map_err(|e| AegisError::NetworkError(format!("get local addr failed: {}", e)))?;
@@ -280,9 +280,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_connection_pool_get_create_and_recycle() {
-        struct MockConnection {
-            id: u64,
-        }
+        struct MockConnection;
 
         impl Connection for MockConnection {
             fn send(&mut self, _data: Bytes) -> BoxFuture<'_, AegisResult<()>> {
@@ -304,12 +302,10 @@ mod tests {
 
         impl NetworkTransport for MockTransport {
             fn connect(&self, _endpoint: &str) -> BoxFuture<'_, AegisResult<Box<dyn Connection>>> {
-                let id = self
+                let _id = self
                     .next_id
                     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                Box::pin(async move {
-                    Ok(Box::new(MockConnection { id }) as Box<dyn Connection>)
-                })
+                Box::pin(async move { Ok(Box::new(MockConnection) as Box<dyn Connection>) })
             }
 
             fn bind(&self, _address: &str) -> BoxFuture<'_, AegisResult<Box<dyn Listener>>> {

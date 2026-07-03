@@ -91,7 +91,11 @@ impl MetadataIndex for MemoryMetadataIndex {
         })
     }
 
-    fn find_by_name(&self, parent_id: &NodeId, name: &str) -> BoxFuture<'_, AegisResult<Option<Node>>> {
+    fn find_by_name(
+        &self,
+        parent_id: &NodeId,
+        name: &str,
+    ) -> BoxFuture<'_, AegisResult<Option<Node>>> {
         let parent_id = *parent_id;
         let name = name.to_string();
         Box::pin(async move {
@@ -252,8 +256,8 @@ impl MetadataQuery for MetadataQueryImpl {
 mod tests {
     use super::*;
     use crate::core::traits::MetadataIndex;
-    use std::sync::Arc;
     use chrono::Utc;
+    use std::sync::Arc;
 
     fn create_node(id: NodeId, name: &str, kind: NodeKind) -> Node {
         Node {
@@ -405,7 +409,9 @@ mod tests {
             index.put_node(node).await.unwrap();
         }
 
-        let query = MetadataQueryBuilder::new().with_name_filter("alpha").build();
+        let query = MetadataQueryBuilder::new()
+            .with_name_filter("alpha")
+            .build();
         let results = index.search(&query).await.unwrap();
         assert_eq!(results.len(), 2);
         assert!(results.iter().all(|n| n.name.contains("alpha")));
@@ -485,7 +491,9 @@ mod tests {
         index.put_node(node2).await.unwrap();
         index.put_node(node3).await.unwrap();
 
-        let query = MetadataQueryBuilder::new().with_label("env", "production").build();
+        let query = MetadataQueryBuilder::new()
+            .with_label("env", "production")
+            .build();
         let results = index.search(&query).await.unwrap();
         assert_eq!(results.len(), 2);
         assert!(results

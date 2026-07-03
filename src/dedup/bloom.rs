@@ -121,8 +121,8 @@ mod tests {
 
         for h in &hashes {
             assert!(!bloom.contains(h));
-            bloom.insert(&h);
-            assert!(bloom.contains(&h));
+            bloom.insert(h);
+            assert!(bloom.contains(h));
         }
 
         assert_eq!(bloom.len(), 50);

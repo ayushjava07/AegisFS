@@ -1,6 +1,6 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use crate::core::error::{AegisError, AegisResult};
@@ -158,10 +158,7 @@ impl ReplicationEngine for ReplicationEngineImpl {
         })
     }
 
-    fn configure_replication(
-        &self,
-        config: ReplicationConfig,
-    ) -> BoxFuture<'_, AegisResult<()>> {
+    fn configure_replication(&self, config: ReplicationConfig) -> BoxFuture<'_, AegisResult<()>> {
         Box::pin(async move {
             config.validate()?;
             let mut cfg = self.config.lock().unwrap();
@@ -201,7 +198,10 @@ mod tests {
         let config = ReplicationConfig::new(ReplicationMode::Sync);
         let result = config.validate();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("at least one replication target"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("at least one replication target"));
     }
 
     #[test]

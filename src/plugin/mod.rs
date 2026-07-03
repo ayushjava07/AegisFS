@@ -264,12 +264,8 @@ mod tests {
     #[tokio::test]
     async fn test_register_duplicate_fails() {
         let registry = PluginRegistryImpl::new();
-        let p1 = Arc::new(TestPlugin {
-            name: "dup".into(),
-        });
-        let p2 = Arc::new(TestPlugin {
-            name: "dup".into(),
-        });
+        let p1 = Arc::new(TestPlugin { name: "dup".into() });
+        let p2 = Arc::new(TestPlugin { name: "dup".into() });
         registry.register(p1).unwrap();
         let result = registry.register(p2);
         assert!(result.is_err());

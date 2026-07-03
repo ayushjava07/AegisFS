@@ -2,7 +2,9 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::core::error::AegisResult;
-use crate::core::traits::{BoxFuture, ManifestStore, MetadataIndex, SnapshotManager, SnapshotStore};
+use crate::core::traits::{
+    BoxFuture, ManifestStore, MetadataIndex, SnapshotManager, SnapshotStore,
+};
 use crate::core::types::*;
 
 #[derive(Debug, Clone)]
@@ -46,7 +48,6 @@ impl SnapshotManagerImpl {
             policy,
         }
     }
-
 }
 
 impl SnapshotManager for SnapshotManagerImpl {
@@ -90,8 +91,8 @@ impl SnapshotManager for SnapshotManagerImpl {
             let parent = if policy_incremental {
                 match snapshot_store.latest_snapshot(&archive_id).await {
                     Ok(s) => {
-                        if s.manifest.created_at > chrono::Utc::now()
-                            - chrono::Duration::days(retention_days as i64)
+                        if s.manifest.created_at
+                            > chrono::Utc::now() - chrono::Duration::days(retention_days as i64)
                         {
                             Some(s.id)
                         } else {
@@ -159,8 +160,12 @@ impl SnapshotManager for SnapshotManagerImpl {
             let _base_manifest = manifest.get_manifest(&base_snap.manifest.id).await?;
             let _target_manifest = manifest.get_manifest(&target_snap.manifest.id).await?;
 
-            let base_nodes = metadata.list_children(&base_snap.manifest.root_node).await?;
-            let target_nodes = metadata.list_children(&target_snap.manifest.root_node).await?;
+            let base_nodes = metadata
+                .list_children(&base_snap.manifest.root_node)
+                .await?;
+            let target_nodes = metadata
+                .list_children(&target_snap.manifest.root_node)
+                .await?;
 
             let base_ids: HashSet<NodeId> = base_nodes.iter().map(|n| n.id).collect();
             let target_ids: HashSet<NodeId> = target_nodes.iter().map(|n| n.id).collect();
@@ -198,10 +203,7 @@ impl SnapshotManager for SnapshotManagerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cache::NoopCache;
     use crate::core::error::AegisError;
-    use crate::core::traits::*;
-    use crate::journal::MemoryJournal;
     use crate::manifest::MemoryManifestStore;
     use crate::metadata::MemoryMetadataIndex;
     use std::sync::Arc;
@@ -262,15 +264,12 @@ mod tests {
             Box::pin(async move { Ok(list) })
         }
 
-        fn latest_snapshot(
-            &self,
-            _archive_id: &ArchiveId,
-        ) -> BoxFuture<'_, AegisResult<Snapshot>> {
+        fn latest_snapshot(&self, _archive_id: &ArchiveId) -> BoxFuture<'_, AegisResult<Snapshot>> {
             let snapshots = self.snapshots.lock().unwrap();
             let latest = snapshots.values().max_by_key(|s| s.timestamp).cloned();
-            Box::pin(async move {
-                latest.ok_or_else(|| AegisError::SnapshotNotFound("none".into()))
-            })
+            Box::pin(
+                async move { latest.ok_or_else(|| AegisError::SnapshotNotFound("none".into())) },
+            )
         }
 
         fn snapshot_chain(

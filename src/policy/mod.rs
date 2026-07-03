@@ -87,13 +87,9 @@ impl PolicyEngine for PolicyEngineImpl {
         let now = Utc::now();
 
         let mut sorted: Vec<&Snapshot> = snapshots.iter().collect();
-        sorted.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        sorted.sort_by_key(|s| std::cmp::Reverse(s.timestamp));
 
-        let keep_set: HashSet<SnapshotId> = sorted
-            .iter()
-            .take(keep_count)
-            .map(|s| s.id)
-            .collect();
+        let keep_set: HashSet<SnapshotId> = sorted.iter().take(keep_count).map(|s| s.id).collect();
 
         let tagged_keep: HashSet<SnapshotId> = sorted
             .iter()
@@ -159,14 +155,8 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    fn make_snapshot(
-        id: &str,
-        days_ago: i64,
-        labels: Vec<(&str, &str)>,
-    ) -> Snapshot {
-        let sid = SnapshotId::from_uuid(
-            uuid::Uuid::parse_str(id).unwrap_or(uuid::Uuid::nil()),
-        );
+    fn make_snapshot(id: &str, days_ago: i64, labels: Vec<(&str, &str)>) -> Snapshot {
+        let sid = SnapshotId::from_uuid(uuid::Uuid::parse_str(id).unwrap_or(uuid::Uuid::nil()));
         let mut label_map = HashMap::new();
         for (k, v) in labels {
             label_map.insert(k.to_string(), v.to_string());
@@ -202,7 +192,7 @@ mod tests {
     #[test]
     fn retention_removes_oldest_beyond_limit() {
         let engine = PolicyEngineImpl::new(PolicyConfig::default());
-        let mut snapshots: Vec<Snapshot> = (0..35)
+        let snapshots: Vec<Snapshot> = (0..35)
             .map(|i| {
                 make_snapshot(
                     &format!("00000000-0000-0000-0000-{:012x}", i),
@@ -219,18 +209,20 @@ mod tests {
     fn retention_tags_protected() {
         let engine = PolicyEngineImpl::new(PolicyConfig::default());
         let snapshots = vec![
-            make_snapshot("00000000-0000-0000-0000-000000000001", 100, vec![("tag", "weekly")]),
+            make_snapshot(
+                "00000000-0000-0000-0000-000000000001",
+                100,
+                vec![("tag", "weekly")],
+            ),
             make_snapshot("00000000-0000-0000-0000-000000000002", 50, vec![]),
             make_snapshot("00000000-0000-0000-0000-000000000003", 60, vec![]),
             make_snapshot("00000000-0000-0000-0000-000000000004", 70, vec![]),
             make_snapshot("00000000-0000-0000-0000-000000000005", 80, vec![]),
         ];
         let eligible = engine.evaluate_retention(&snapshots).unwrap();
-        assert!(!eligible.contains(
-            &SnapshotId::from_uuid(
-                uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap()
-            )
-        ));
+        assert!(!eligible.contains(&SnapshotId::from_uuid(
+            uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap()
+        )));
     }
 
     #[test]

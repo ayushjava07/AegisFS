@@ -49,10 +49,7 @@ impl Chunker for ContentDefinedChunker {
                 data_len
             } else {
                 let search_start = start + self.min_size as usize;
-                let search_end = std::cmp::min(
-                    start + self.max_size as usize,
-                    data_len,
-                );
+                let search_end = std::cmp::min(start + self.max_size as usize, data_len);
                 let mut split = search_end;
                 for pos in (search_start..search_end).step_by(1) {
                     if self.hash_at(data, pos) == self.mask {
@@ -65,7 +62,11 @@ impl Chunker for ContentDefinedChunker {
 
             let chunk_data = &data[start..end];
             let chunk_id = ChunkId::from_data(chunk_data);
-            descriptors.push(ChunkDescriptor::new(chunk_id, start as u64, (end - start) as u64));
+            descriptors.push(ChunkDescriptor::new(
+                chunk_id,
+                start as u64,
+                (end - start) as u64,
+            ));
             start = end;
         }
 
@@ -84,10 +85,7 @@ impl Chunker for ContentDefinedChunker {
             }
 
             let search_start = start + self.min_size as usize;
-            let search_end = std::cmp::min(
-                start + self.max_size as usize,
-                data_len,
-            );
+            let search_end = std::cmp::min(start + self.max_size as usize, data_len);
             let mut split = search_end;
             for pos in (search_start..search_end).step_by(1) {
                 if self.hash_at(data, pos) == self.mask {

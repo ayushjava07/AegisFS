@@ -71,7 +71,12 @@ pub fn init_telemetry(config: &TelemetryConfig) {
         .expect("failed to set global tracing subscriber");
 }
 
-pub fn record_operation(name: &str, duration: std::time::Duration, success: bool, metadata: &HashMap<String, String>) {
+pub fn record_operation(
+    name: &str,
+    duration: std::time::Duration,
+    success: bool,
+    metadata: &HashMap<String, String>,
+) {
     let duration_ms = duration.as_secs_f64() * 1000.0;
 
     let meta_str: Vec<String> = metadata
@@ -146,12 +151,7 @@ mod tests {
         let mut metadata = HashMap::new();
         metadata.insert("file".into(), "test.txt".into());
 
-        record_operation(
-            "sync_file",
-            Duration::from_millis(150),
-            true,
-            &metadata,
-        );
+        record_operation("sync_file", Duration::from_millis(150), true, &metadata);
     }
 
     #[test]
@@ -159,25 +159,18 @@ mod tests {
         let mut metadata = HashMap::new();
         metadata.insert("error".into(), "timeout".into());
 
-        record_operation(
-            "sync_file",
-            Duration::from_secs(5),
-            false,
-            &metadata,
-        );
+        record_operation("sync_file", Duration::from_secs(5), false, &metadata);
     }
 
     #[test]
     fn test_telemetry_span_finish() {
-        let span = TelemetrySpan::new("finish_test")
-            .with_metadata("test", "true");
+        let span = TelemetrySpan::new("finish_test").with_metadata("test", "true");
         span.finish(true);
     }
 
     #[test]
     fn test_telemetry_span_finish_failure() {
-        let span = TelemetrySpan::new("finish_fail")
-            .with_metadata("reason", "timeout");
+        let span = TelemetrySpan::new("finish_fail").with_metadata("reason", "timeout");
         span.finish(false);
     }
 
@@ -194,12 +187,7 @@ mod tests {
     #[test]
     fn test_record_operation_empty_metadata() {
         let metadata = HashMap::new();
-        record_operation(
-            "no_meta",
-            Duration::from_nanos(500),
-            true,
-            &metadata,
-        );
+        record_operation("no_meta", Duration::from_nanos(500), true, &metadata);
     }
 
     #[test]

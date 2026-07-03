@@ -32,8 +32,9 @@ impl RpcRequest {
     }
 
     pub fn deserialize(data: &[u8]) -> AegisResult<Self> {
-        bincode::deserialize(data)
-            .map_err(|e| AegisError::DeserializationError(format!("rpc request deserialize: {}", e)))
+        bincode::deserialize(data).map_err(|e| {
+            AegisError::DeserializationError(format!("rpc request deserialize: {}", e))
+        })
     }
 }
 
@@ -67,8 +68,9 @@ impl RpcResponse {
     }
 
     pub fn deserialize(data: &[u8]) -> AegisResult<Self> {
-        bincode::deserialize(data)
-            .map_err(|e| AegisError::DeserializationError(format!("rpc response deserialize: {}", e)))
+        bincode::deserialize(data).map_err(|e| {
+            AegisError::DeserializationError(format!("rpc response deserialize: {}", e))
+        })
     }
 }
 
@@ -109,7 +111,10 @@ impl RpcClient {
         let rpc_req = RpcRequest::new(method, request_id, request);
         let req_bytes = rpc_req.serialize()?;
 
-        let mut conn = self.pool.get_or_create(endpoint, self.transport.as_ref()).await?;
+        let mut conn = self
+            .pool
+            .get_or_create(endpoint, self.transport.as_ref())
+            .await?;
         conn.send(Bytes::from(req_bytes))
             .await
             .map_err(|e| AegisError::RpcError {
@@ -170,7 +175,11 @@ impl Default for RpcServiceRegistry {
 }
 
 impl RpcServiceRegistry {
-    pub async fn register(&self, name: impl Into<String>, handler: ServiceHandler) -> AegisResult<()> {
+    pub async fn register(
+        &self,
+        name: impl Into<String>,
+        handler: ServiceHandler,
+    ) -> AegisResult<()> {
         let name = name.into();
         let mut services = self.services.write().await;
         if services.contains_key(&name) {
@@ -316,7 +325,10 @@ impl RpcServer {
                 }
             };
 
-            debug!("handling RPC request: {} id={}", request.method, request.request_id);
+            debug!(
+                "handling RPC request: {} id={}",
+                request.method, request.request_id
+            );
 
             let response = match registry.get_handler(&request.method).await {
                 Ok(handler) => match handler.call(&request.method, request.payload).await {
@@ -512,10 +524,7 @@ mod tests {
         }
 
         impl NetworkTransport for LoopbackTransport {
-            fn connect(
-                &self,
-                _endpoint: &str,
-            ) -> BoxFuture<'_, AegisResult<Box<dyn Connection>>> {
+            fn connect(&self, _endpoint: &str) -> BoxFuture<'_, AegisResult<Box<dyn Connection>>> {
                 let buf = self.buffer.clone();
                 Box::pin(async move {
                     Ok(Box::new(LoopbackConnection { buffer: buf }) as Box<dyn Connection>)
@@ -540,7 +549,7 @@ mod tests {
             buffer: buffer.clone(),
         });
 
-        let client = RpcClient::new(transport);
+        let _client = RpcClient::new(transport);
 
         let request_id = 1u64;
         let req = RpcRequest::new("echo", request_id, vec![0xde, 0xad, 0xbe, 0xef]);

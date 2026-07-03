@@ -180,9 +180,7 @@ impl SerializedBundle {
 
     pub fn decode(data: &[u8]) -> AegisResult<Self> {
         if data.is_empty() {
-            return Err(AegisError::DeserializationError(
-                "empty bundle data".into(),
-            ));
+            return Err(AegisError::DeserializationError("empty bundle data".into()));
         }
         let format = SerializationFormat::from_tag(data[0])?;
         let payload = data[1..].to_vec();
@@ -343,8 +341,7 @@ mod tests {
     #[test]
     fn test_manifest_roundtrip_binary() {
         let manifest = test_manifest();
-        let restored =
-            roundtrip(&manifest, serialize_manifest, deserialize_manifest).unwrap();
+        let restored = roundtrip(&manifest, serialize_manifest, deserialize_manifest).unwrap();
         assert_eq!(manifest.id, restored.id);
         assert_eq!(manifest.chunks.len(), restored.chunks.len());
         assert_eq!(manifest.total_size, restored.total_size);
@@ -363,8 +360,7 @@ mod tests {
     #[test]
     fn test_snapshot_roundtrip_binary() {
         let snapshot = test_snapshot();
-        let restored =
-            roundtrip(&snapshot, serialize_snapshot, deserialize_snapshot).unwrap();
+        let restored = roundtrip(&snapshot, serialize_snapshot, deserialize_snapshot).unwrap();
         assert_eq!(snapshot.id, restored.id);
         assert_eq!(snapshot.labels, restored.labels);
         assert_eq!(snapshot.incremental, restored.incremental);
@@ -576,8 +572,7 @@ mod tests {
             created_at: Utc::now(),
             metadata: ManifestMetadata::default(),
         };
-        let restored =
-            roundtrip(&manifest, serialize_manifest, deserialize_manifest).unwrap();
+        let restored = roundtrip(&manifest, serialize_manifest, deserialize_manifest).unwrap();
         assert!(restored.chunks.is_empty());
         assert_eq!(restored.total_size, 0);
     }
@@ -620,8 +615,7 @@ mod tests {
             labels: HashMap::new(),
             incremental: true,
         };
-        let restored =
-            roundtrip(&snapshot, serialize_snapshot, deserialize_snapshot).unwrap();
+        let restored = roundtrip(&snapshot, serialize_snapshot, deserialize_snapshot).unwrap();
         assert!(restored.parent.is_some());
         assert!(restored.incremental);
     }
@@ -630,7 +624,9 @@ mod tests {
     fn test_node_with_full_metadata() {
         let mut metadata = NodeMetadata::default();
         metadata.labels.insert("env".into(), "production".into());
-        metadata.attributes.insert("custom".into(), vec![1, 2, 3, 4]);
+        metadata
+            .attributes
+            .insert("custom".into(), vec![1, 2, 3, 4]);
 
         let node = Node {
             id: NodeId::new(),
@@ -650,17 +646,16 @@ mod tests {
         let restored = roundtrip(&node, serialize_node, deserialize_node).unwrap();
         assert_eq!(restored.kind, NodeKind::Symlink);
         assert_eq!(restored.mode.mode, 0o777);
-        assert_eq!(
-            restored.metadata.labels.get("env").unwrap(),
-            "production"
-        );
+        assert_eq!(restored.metadata.labels.get("env").unwrap(), "production");
     }
 
     #[test]
     fn test_chunk_with_all_flags() {
         let mut chunk = test_chunk();
-        chunk.flags =
-            ChunkFlags::DELETED | ChunkFlags::INLINE | ChunkFlags::COMPACTED | ChunkFlags::CHECKPOINT;
+        chunk.flags = ChunkFlags::DELETED
+            | ChunkFlags::INLINE
+            | ChunkFlags::COMPACTED
+            | ChunkFlags::CHECKPOINT;
         let restored = roundtrip(&chunk, serialize_chunk, deserialize_chunk).unwrap();
         assert_eq!(chunk.flags, restored.flags);
     }
@@ -688,8 +683,11 @@ mod tests {
     fn test_manifest_with_large_chunk_list() {
         let chunks: Vec<ChunkDescriptor> = (0..1000)
             .map(|i| {
-                let mut desc =
-                    ChunkDescriptor::new(ChunkId::from_data(format!("chunk-{}", i).as_bytes()), i as u64 * 4096, 4096);
+                let mut desc = ChunkDescriptor::new(
+                    ChunkId::from_data(format!("chunk-{}", i).as_bytes()),
+                    i as u64 * 4096,
+                    4096,
+                );
                 desc.checksum = HashValue::sha256(format!("data-{}", i).as_bytes());
                 desc
             })
@@ -704,8 +702,7 @@ mod tests {
             created_at: Utc::now(),
             metadata: ManifestMetadata::default(),
         };
-        let restored =
-            roundtrip(&manifest, serialize_manifest, deserialize_manifest).unwrap();
+        let restored = roundtrip(&manifest, serialize_manifest, deserialize_manifest).unwrap();
         assert_eq!(restored.chunks.len(), 1000);
     }
 

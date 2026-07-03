@@ -45,9 +45,12 @@ impl fmt::Display for ChunkId {
 impl FromStr for ChunkId {
     type Err = AegisError;
     fn from_str(s: &str) -> AegisResult<Self> {
-        let bytes = hex::decode(s).map_err(|e| AegisError::InvalidArgument(format!("invalid hex: {}", e)))?;
+        let bytes = hex::decode(s)
+            .map_err(|e| AegisError::InvalidArgument(format!("invalid hex: {}", e)))?;
         if bytes.len() != 32 {
-            return Err(AegisError::InvalidArgument("chunk id must be 32 bytes".into()));
+            return Err(AegisError::InvalidArgument(
+                "chunk id must be 32 bytes".into(),
+            ));
         }
         let mut arr = [0u8; 32];
         arr.copy_from_slice(&bytes);
@@ -100,7 +103,8 @@ impl fmt::Display for HashValue {
 impl FromStr for HashValue {
     type Err = AegisError;
     fn from_str(s: &str) -> AegisResult<Self> {
-        let bytes = hex::decode(s).map_err(|e| AegisError::InvalidArgument(format!("invalid hex: {}", e)))?;
+        let bytes = hex::decode(s)
+            .map_err(|e| AegisError::InvalidArgument(format!("invalid hex: {}", e)))?;
         if bytes.len() != 32 {
             return Err(AegisError::InvalidArgument("hash must be 32 bytes".into()));
         }
@@ -131,7 +135,9 @@ impl NodeId {
     }
 
     pub fn root() -> Self {
-        Self(Uuid::from_bytes([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]))
+        Self(Uuid::from_bytes([
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]))
     }
 }
 
@@ -150,7 +156,8 @@ impl fmt::Display for NodeId {
 impl FromStr for NodeId {
     type Err = AegisError;
     fn from_str(s: &str) -> AegisResult<Self> {
-        let uuid = Uuid::from_str(s).map_err(|e| AegisError::InvalidArgument(format!("invalid node id: {}", e)))?;
+        let uuid = Uuid::from_str(s)
+            .map_err(|e| AegisError::InvalidArgument(format!("invalid node id: {}", e)))?;
         Ok(Self(uuid))
     }
 }
@@ -191,7 +198,8 @@ impl fmt::Display for SnapshotId {
 impl FromStr for SnapshotId {
     type Err = AegisError;
     fn from_str(s: &str) -> AegisResult<Self> {
-        let uuid = Uuid::from_str(s).map_err(|e| AegisError::InvalidArgument(format!("invalid snapshot id: {}", e)))?;
+        let uuid = Uuid::from_str(s)
+            .map_err(|e| AegisError::InvalidArgument(format!("invalid snapshot id: {}", e)))?;
         Ok(Self(uuid))
     }
 }
@@ -232,7 +240,8 @@ impl fmt::Display for ArchiveId {
 impl FromStr for ArchiveId {
     type Err = AegisError;
     fn from_str(s: &str) -> AegisResult<Self> {
-        let uuid = Uuid::from_str(s).map_err(|e| AegisError::InvalidArgument(format!("invalid archive id: {}", e)))?;
+        let uuid = Uuid::from_str(s)
+            .map_err(|e| AegisError::InvalidArgument(format!("invalid archive id: {}", e)))?;
         Ok(Self(uuid))
     }
 }
@@ -273,7 +282,8 @@ impl fmt::Display for ManifestId {
 impl FromStr for ManifestId {
     type Err = AegisError;
     fn from_str(s: &str) -> AegisResult<Self> {
-        let uuid = Uuid::from_str(s).map_err(|e| AegisError::InvalidArgument(format!("invalid manifest id: {}", e)))?;
+        let uuid = Uuid::from_str(s)
+            .map_err(|e| AegisError::InvalidArgument(format!("invalid manifest id: {}", e)))?;
         Ok(Self(uuid))
     }
 }

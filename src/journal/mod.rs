@@ -13,8 +13,8 @@ use crate::core::traits::{JournalHandler, JournalStore};
 use crate::core::types::*;
 
 fn compute_entry_checksum(kind: &JournalEntryKind, data: &[u8]) -> AegisResult<HashValue> {
-    let kind_bytes = bincode::serialize(kind)
-        .map_err(|e| AegisError::SerializationError(e.to_string()))?;
+    let kind_bytes =
+        bincode::serialize(kind).map_err(|e| AegisError::SerializationError(e.to_string()))?;
     let mut hasher = Sha256::new();
     hasher.update(&kind_bytes);
     hasher.update(data);
@@ -122,7 +122,11 @@ impl JournalStore for MemoryJournal {
         async move { result }.boxed()
     }
 
-    fn read_after(&self, sequence: u64, limit: usize) -> BoxFuture<'_, AegisResult<Vec<JournalEntry>>> {
+    fn read_after(
+        &self,
+        sequence: u64,
+        limit: usize,
+    ) -> BoxFuture<'_, AegisResult<Vec<JournalEntry>>> {
         let entries = {
             let inner = self.inner.read();
             inner
@@ -139,11 +143,7 @@ impl JournalStore for MemoryJournal {
     fn latest_sequence(&self) -> BoxFuture<'_, AegisResult<u64>> {
         let seq = {
             let inner = self.inner.read();
-            inner
-                .entries
-                .last()
-                .map(|e| e.sequence)
-                .unwrap_or(0)
+            inner.entries.last().map(|e| e.sequence).unwrap_or(0)
         };
         async move { Ok(seq) }.boxed()
     }
@@ -162,15 +162,15 @@ impl JournalStore for MemoryJournal {
         async move {
             let mut h = handler;
             for entry in &entries {
-                h.handle(entry).map_err(|e| {
-                    AegisError::JournalReplayFailed {
+                h.handle(entry)
+                    .map_err(|e| AegisError::JournalReplayFailed {
                         sequence: entry.sequence,
                         message: e.to_string(),
-                    }
-                })?;
+                    })?;
             }
             Ok(entries.len() as u64)
-        }.boxed()
+        }
+        .boxed()
     }
 }
 
@@ -194,12 +194,12 @@ pub fn replay_entries(
     handler: &mut impl JournalHandler,
 ) -> AegisResult<u64> {
     for entry in entries {
-        handler.handle(entry).map_err(|e| {
-            AegisError::JournalReplayFailed {
+        handler
+            .handle(entry)
+            .map_err(|e| AegisError::JournalReplayFailed {
                 sequence: entry.sequence,
                 message: e.to_string(),
-            }
-        })?;
+            })?;
     }
     Ok(entries.last().map(|e| e.sequence).unwrap_or(0))
 }
@@ -316,14 +316,20 @@ impl<S: JournalStore> WalWriter<S> {
             self.current_sequence = seq;
         }
         if batch_size > 0 {
-            info!("Flushed {} journal entries (seq={})", batch_size, self.current_sequence);
+            info!(
+                "Flushed {} journal entries (seq={})",
+                batch_size, self.current_sequence
+            );
         }
         Ok(())
     }
 
     pub async fn flush_and_sync(&mut self) -> AegisResult<()> {
         let result = self.flush().await;
-        info!("Journal sync complete at sequence {}", self.current_sequence);
+        info!(
+            "Journal sync complete at sequence {}",
+            self.current_sequence
+        );
         result
     }
 }
@@ -331,7 +337,6 @@ impl<S: JournalStore> WalWriter<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[derive(Default)]
     struct CollectingHandler {
@@ -378,13 +383,19 @@ mod tests {
     async fn test_basic_append_and_read() {
         let journal = MemoryJournal::new();
         let seq1 = journal
-            .append(create_entry(JournalEntryKind::CreateNode, b"node1".to_vec()))
+            .append(create_entry(
+                JournalEntryKind::CreateNode,
+                b"node1".to_vec(),
+            ))
             .await
             .unwrap();
         assert_eq!(seq1, 1);
 
         let seq2 = journal
-            .append(create_entry(JournalEntryKind::DeleteNode, b"node2".to_vec()))
+            .append(create_entry(
+                JournalEntryKind::DeleteNode,
+                b"node2".to_vec(),
+            ))
             .await
             .unwrap();
         assert_eq!(seq2, 2);
@@ -464,7 +475,8 @@ mod tests {
                 .append(create_entry(JournalEntryKind::CreateNode, vec![i]))
                 .await
                 .unwrap();
-        }            let handler = CollectingHandler::new();
+        }
+        let handler = CollectingHandler::new();
         let last_seq = journal.replay(Box::new(handler)).await.unwrap();
         assert_eq!(last_seq, 5);
     }

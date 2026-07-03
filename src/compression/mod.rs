@@ -75,7 +75,9 @@ impl CompressionProvider for Lz4Compression {
         }
         #[cfg(not(feature = "lz4-compression"))]
         {
-            Err(AegisError::CompressionError("lz4 not enabled (feature 'lz4-compression')".into()))
+            Err(AegisError::CompressionError(
+                "lz4 not enabled (feature 'lz4-compression')".into(),
+            ))
         }
     }
 
@@ -87,7 +89,9 @@ impl CompressionProvider for Lz4Compression {
         }
         #[cfg(not(feature = "lz4-compression"))]
         {
-            Err(AegisError::DecompressionError("lz4 not enabled (feature 'lz4-compression')".into()))
+            Err(AegisError::DecompressionError(
+                "lz4 not enabled (feature 'lz4-compression')".into(),
+            ))
         }
     }
 
@@ -167,10 +171,9 @@ impl CompressionRegistry {
     }
 
     pub fn get(&self, name: &str) -> AegisResult<Arc<dyn CompressionProvider>> {
-        self.providers
-            .get(name)
-            .cloned()
-            .ok_or_else(|| AegisError::InvalidArgument(format!("unknown compression algorithm: {name}")))
+        self.providers.get(name).cloned().ok_or_else(|| {
+            AegisError::InvalidArgument(format!("unknown compression algorithm: {name}"))
+        })
     }
 
     pub fn set_default(&mut self, name: &str) -> AegisResult<()> {
@@ -254,10 +257,7 @@ mod tests {
             ("single_byte", vec![42]),
             ("small", b"hello world".to_vec()),
             // 100-byte pattern
-            (
-                "medium",
-                (0..100).map(|i| (i % 256) as u8).collect(),
-            ),
+            ("medium", (0..100).map(|i| (i % 256) as u8).collect()),
             // 8 KB pseudo-random
             (
                 "8kb",
@@ -269,10 +269,7 @@ mod tests {
                 (0..65536).map(|i| (i % 32) as u8).collect(),
             ),
             // all zeros (highly compressible)
-            (
-                "zeros_16kb",
-                vec![0u8; 16384],
-            ),
+            ("zeros_16kb", vec![0u8; 16384]),
         ]
     }
 
@@ -407,7 +404,10 @@ mod tests {
     #[test]
     fn registry_set_default() {
         let mut registry = CompressionRegistry::new();
-        assert_eq!(registry.default().algorithm(), CompressionAlgorithm::Zstd(3));
+        assert_eq!(
+            registry.default().algorithm(),
+            CompressionAlgorithm::Zstd(3)
+        );
         registry.set_default("none").unwrap();
         assert_eq!(registry.default().algorithm(), CompressionAlgorithm::None);
     }

@@ -35,7 +35,9 @@ pub struct FixedSizeChunker {
 
 impl FixedSizeChunker {
     pub fn new(size: u64) -> Self {
-        Self { size: size.max(512) }
+        Self {
+            size: size.max(512),
+        }
     }
 }
 
@@ -48,9 +50,7 @@ impl Chunker for FixedSizeChunker {
             let chunk_size = std::cmp::min(size, (data.len() as u64 - offset) as usize);
             let mut hasher = sha2::Sha256::new();
             hasher.update(&data[offset as usize..offset as usize + chunk_size]);
-            let hash = crate::core::id::ChunkId::from_bytes(
-                hasher.finalize().into(),
-            );
+            let hash = crate::core::id::ChunkId::from_bytes(hasher.finalize().into());
             descriptors.push(ChunkDescriptor::new(hash, offset, chunk_size as u64));
             offset += chunk_size as u64;
         }

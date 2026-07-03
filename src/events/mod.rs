@@ -69,21 +69,30 @@ impl EventBus for InMemoryEventBus {
         })
     }
 
-    fn subscribe(&self, kind: EventKind) -> crate::core::traits::BoxFuture<'_, AegisResult<Box<dyn crate::core::traits::EventReceiver>>> {
+    fn subscribe(
+        &self,
+        kind: EventKind,
+    ) -> crate::core::traits::BoxFuture<'_, AegisResult<Box<dyn crate::core::traits::EventReceiver>>>
+    {
         let id = next_receiver_id();
         let (tx, rx) = unbounded_channel();
         self.subscribers.entry(kind).or_default().push((id, tx));
         Box::pin(async move {
-            let receiver: Box<dyn crate::core::traits::EventReceiver> = Box::new(ChannelEventReceiver {
-                kind,
-                receiver_id: id,
-                inner: rx,
-            });
+            let receiver: Box<dyn crate::core::traits::EventReceiver> =
+                Box::new(ChannelEventReceiver {
+                    kind,
+                    receiver_id: id,
+                    inner: rx,
+                });
             Ok(receiver)
         })
     }
 
-    fn unsubscribe(&self, kind: EventKind, receiver_id: Uuid) -> crate::core::traits::BoxFuture<'_, AegisResult<()>> {
+    fn unsubscribe(
+        &self,
+        kind: EventKind,
+        receiver_id: Uuid,
+    ) -> crate::core::traits::BoxFuture<'_, AegisResult<()>> {
         let rid = receiver_id.as_u128() as u64;
         Box::pin(async move {
             if let Some(mut subscribers) = self.subscribers.get_mut(&kind) {
@@ -170,17 +179,10 @@ impl EventBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
-    use tokio::runtime::Runtime;
-
-    fn rt() -> Runtime {
-        tokio::runtime::Runtime::new().unwrap()
-    }
 
     #[test]
     fn test_event_builder_default_severity() {
-        let event = EventBuilder::new(EventKind::ArchiveCreated, "test")
-            .build();
+        let event = EventBuilder::new(EventKind::ArchiveCreated, "test").build();
         assert_eq!(event.kind, EventKind::ArchiveCreated);
         assert_eq!(event.source, "test");
         assert_eq!(event.severity, EventSeverity::Info);
@@ -274,7 +276,11 @@ mod tests {
         let event = EventBuilder::new(EventKind::ChunkStored, "unsub").build();
         bus.publish_sync(event);
 
-        assert!(bus.subscribers.get(&EventKind::ChunkStored).unwrap().is_empty());
+        assert!(bus
+            .subscribers
+            .get(&EventKind::ChunkStored)
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
@@ -354,7 +360,7 @@ mod tests {
     async fn test_async_unsubscribe() {
         let bus = InMemoryEventBus::new();
 
-        let mut receiver = bus.subscribe_sync(EventKind::ChunkStored);
+        let receiver = bus.subscribe_sync(EventKind::ChunkStored);
         let receiver_id = Uuid::from_u128(receiver.receiver_id() as u128);
         drop(receiver);
 
