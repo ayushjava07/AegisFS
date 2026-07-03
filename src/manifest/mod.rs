@@ -76,8 +76,10 @@ impl ManifestBuilder {
         };
 
         let serialized = serde_json::to_vec(&manifest)
-            .expect("Manifest serialization for checksum must not fail");
-        manifest.checksum = HashValue::sha256(&serialized);
+            .unwrap_or_else(|_| Vec::new());
+        if !serialized.is_empty() {
+            manifest.checksum = HashValue::sha256(&serialized);
+        }
 
         manifest
     }

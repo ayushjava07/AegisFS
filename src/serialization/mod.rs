@@ -7,6 +7,12 @@ use crate::core::error::{AegisError, AegisResult};
 use crate::core::traits::Serializer;
 use crate::core::types::*;
 
+mod binary;
+mod json;
+
+pub use binary::BinSerializer;
+pub use json::JsonSerializer;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Manifest {
     pub id: ManifestId,
@@ -66,60 +72,6 @@ impl SerializationFormat {
             return Ok(Self::Json);
         }
         Ok(Self::Binary)
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct BinSerializer;
-
-impl BinSerializer {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for BinSerializer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Serializer for BinSerializer {
-    fn serialize<T: Serialize + ?Sized>(&self, value: &T) -> AegisResult<Vec<u8>> {
-        bincode::serialize(value)
-            .map_err(|e| AegisError::SerializationError(format!("bincode: {}", e)))
-    }
-
-    fn deserialize<T: serde::de::DeserializeOwned>(&self, data: &[u8]) -> AegisResult<T> {
-        bincode::deserialize(data)
-            .map_err(|e| AegisError::DeserializationError(format!("bincode: {}", e)))
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct JsonSerializer;
-
-impl JsonSerializer {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for JsonSerializer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Serializer for JsonSerializer {
-    fn serialize<T: Serialize + ?Sized>(&self, value: &T) -> AegisResult<Vec<u8>> {
-        serde_json::to_vec(value)
-            .map_err(|e| AegisError::SerializationError(format!("json: {}", e)))
-    }
-
-    fn deserialize<T: serde::de::DeserializeOwned>(&self, data: &[u8]) -> AegisResult<T> {
-        serde_json::from_slice(data)
-            .map_err(|e| AegisError::DeserializationError(format!("json: {}", e)))
     }
 }
 
@@ -206,11 +158,11 @@ pub fn deserialize_chunk(data: &[u8]) -> AegisResult<Chunk> {
     Ok(chunk)
 }
 
-pub fn serialize_manifest(manifest: &Manifest) -> AegisResult<Vec<u8>> {
+pub fn serialize_manifest(manifest: &self::Manifest) -> AegisResult<Vec<u8>> {
     BinSerializer::new().serialize(manifest)
 }
 
-pub fn deserialize_manifest(data: &[u8]) -> AegisResult<Manifest> {
+pub fn deserialize_manifest(data: &[u8]) -> AegisResult<self::Manifest> {
     BinSerializer::new().deserialize(data)
 }
 
@@ -242,8 +194,8 @@ mod tests {
         )
     }
 
-    fn test_manifest() -> Manifest {
-        Manifest {
+    fn test_manifest() -> self::Manifest {
+        self::Manifest {
             id: ManifestId::new(),
             archive_id: ArchiveId::new(),
             root_node: NodeId::new(),
@@ -352,7 +304,7 @@ mod tests {
         let manifest = test_manifest();
         let serializer = JsonSerializer::new();
         let data = serializer.serialize(&manifest).unwrap();
-        let restored: Manifest = serializer.deserialize(&data).unwrap();
+        let restored: self::Manifest = serializer.deserialize(&data).unwrap();
         assert_eq!(manifest.id, restored.id);
         assert_eq!(manifest.chunks.len(), restored.chunks.len());
     }
@@ -562,7 +514,7 @@ mod tests {
 
     #[test]
     fn test_empty_manifest() {
-        let manifest = Manifest {
+        let manifest = self::Manifest {
             id: ManifestId::new(),
             archive_id: ArchiveId::new(),
             root_node: NodeId::nil(),
@@ -692,7 +644,7 @@ mod tests {
                 desc
             })
             .collect();
-        let manifest = Manifest {
+        let manifest = self::Manifest {
             id: ManifestId::new(),
             archive_id: ArchiveId::new(),
             root_node: NodeId::new(),
@@ -750,7 +702,6 @@ mod tests {
         let bundle = SerializedBundle::new(SerializationFormat::Json, data);
         let encoded = bundle.encode().unwrap();
 
-        // manually verify tag
         assert_eq!(encoded[0], 1);
 
         let decoded = SerializedBundle::decode(&encoded).unwrap();

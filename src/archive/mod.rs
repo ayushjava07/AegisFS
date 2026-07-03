@@ -1387,7 +1387,7 @@ mod tests {
     }
 
     #[test]
-    fn test_archive_with_different_encryption() {
+    fn test_archive_with_aes_encryption() {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let manager = ArchiveManagerImpl::new();
 
@@ -1405,6 +1405,13 @@ mod tests {
             .unwrap();
         let archive_aes = rt.block_on(manager.get_archive(&id_aes)).unwrap();
         assert!(archive_aes.encrypted);
+    }
+
+    #[cfg(feature = "chacha-encryption")]
+    #[test]
+    fn test_archive_with_chacha_encryption() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let manager = ArchiveManagerImpl::new();
 
         let config_cha = ArchiveConfig {
             name: "chacha-archive".into(),

@@ -206,10 +206,11 @@ impl IntegrityScanner {
         self.running.load(Ordering::SeqCst)
     }
 
-    pub fn start(&mut self) {
+    pub fn start(&mut self) -> AegisResult<()> {
         if self.running.load(Ordering::SeqCst) {
-            return;
+            return Ok(());
         }
+        let rt = tokio::runtime::Runtime::new()?;
         self.running.store(true, Ordering::SeqCst);
 
         let storage = self.storage.clone();
@@ -219,9 +220,6 @@ impl IntegrityScanner {
         let callback = self.callback.clone();
 
         self.handle = Some(thread::spawn(move || {
-            let rt =
-                tokio::runtime::Runtime::new().expect("failed to create tokio runtime for scanner");
-
             while running.load(Ordering::SeqCst) {
                 let start = Instant::now();
                 let result = rt.block_on(async { scan_batch(&storage, batch_size).await });
@@ -253,6 +251,7 @@ impl IntegrityScanner {
                 thread::sleep(interval);
             }
         }));
+        Ok(())
     }
 
     pub fn stop(&mut self) {

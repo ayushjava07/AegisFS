@@ -67,8 +67,7 @@ pub fn init_telemetry(config: &TelemetryConfig) {
         .with_line_number(true)
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("failed to set global tracing subscriber");
+    let _ = tracing::subscriber::set_global_default(subscriber);
 }
 
 pub fn record_operation(

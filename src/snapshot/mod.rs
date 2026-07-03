@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use crate::core::error::AegisResult;
+use crate::core::error::{AegisError, AegisResult};
 use crate::core::traits::{
     BoxFuture, ManifestStore, MetadataIndex, SnapshotManager, SnapshotStore,
 };
@@ -185,8 +185,10 @@ impl SnapshotManager for SnapshotManagerImpl {
             }
 
             for id in base_ids.intersection(&target_ids) {
-                let base_node = base_nodes.iter().find(|n| n.id == *id).unwrap();
-                let target_node = target_nodes.iter().find(|n| n.id == *id).unwrap();
+                let base_node = base_nodes.iter().find(|n| n.id == *id)
+                    .ok_or_else(|| AegisError::NodeNotFound(format!("base node {}", id)))?;
+                let target_node = target_nodes.iter().find(|n| n.id == *id)
+                    .ok_or_else(|| AegisError::NodeNotFound(format!("target node {}", id)))?;
                 if base_node.modified_at != target_node.modified_at {
                     diff.modified.push((base_node.id, target_node.id));
                     diff.size_delta += target_node.size as i64 - base_node.size as i64;

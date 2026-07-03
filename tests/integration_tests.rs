@@ -1,8 +1,5 @@
 use aegisfs::archive::ArchiveManagerImpl;
-use aegisfs::{
-    ArchiveConfig, ArchiveHandle, ArchiveManager, CompressionAlgorithm, EncryptionAlgorithm,
-    NodeKind, SnapshotManager, VirtualFileSystem,
-};
+use aegisfs::{ArchiveConfig, ArchiveManager, CompressionAlgorithm, EncryptionAlgorithm, NodeKind};
 use std::collections::HashMap;
 
 #[tokio::test]

@@ -1,30 +1,44 @@
 [package]
 name = "aegisfs-fuzz"
-version = "0.0.0"
-publish = false
+version = "0.1.0"
 edition = "2021"
 
+[package.metadata]
+cargo-fuzz = true
+
 [dependencies]
+aegisfs = { path = ".." }
 libfuzzer-sys = "0.4"
-aegisfs = { path = "..", features = ["zstd-compression", "lz4-compression", "aes-encryption", "chacha-encryption"] }
 
-# Prevent this from interfering with workspaces
-[workspace]
+[profile.release]
+debug = 1
 
 [[bin]]
-name = "fuzz_chunking"
-path = "fuzz_targets/fuzz_chunking.rs"
+name = "chunking"
+path = "fuzz_targets/chunking.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "fuzz_serialization"
-path = "fuzz_targets/fuzz_serialization.rs"
+name = "checksum"
+path = "fuzz_targets/checksum.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "fuzz_crypto"
-path = "fuzz_targets/fuzz_crypto.rs"
+name = "serialization"
+path = "fuzz_targets/serialization.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "dedup"
+path = "fuzz_targets/dedup.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "compression"
+path = "fuzz_targets/compression.rs"
 test = false
 doc = false

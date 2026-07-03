@@ -1,128 +1,18 @@
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use bytes::Bytes;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener as TokioListener, TcpStream};
+use tokio::net::TcpListener as TokioListener;
 use tokio::sync::Mutex;
 use tracing::{debug, warn};
 
 use crate::core::error::{AegisError, AegisResult};
 use crate::core::traits::{BoxFuture, Connection, Listener, NetworkTransport};
 
-pub struct TcpTransport;
+mod connection;
+mod transport;
 
-impl TcpTransport {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for TcpTransport {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl NetworkTransport for TcpTransport {
-    fn connect(&self, endpoint: &str) -> BoxFuture<'_, AegisResult<Box<dyn Connection>>> {
-        let endpoint = endpoint.to_string();
-        Box::pin(async move {
-            let stream = TcpStream::connect(&endpoint).await.map_err(|e| {
-                AegisError::NetworkError(format!("connect failed to {}: {}", endpoint, e))
-            })?;
-            debug!("connected to {}", endpoint);
-            Ok(Box::new(TcpConnection::new(stream)) as Box<dyn Connection>)
-        })
-    }
-
-    fn bind(&self, address: &str) -> BoxFuture<'_, AegisResult<Box<dyn Listener>>> {
-        let address = address.to_string();
-        Box::pin(async move {
-            let listener = TokioListener::bind(&address).await.map_err(|e| {
-                AegisError::NetworkError(format!("bind failed on {}: {}", address, e))
-            })?;
-            let local = listener
-                .local_addr()
-                .map_err(|e| AegisError::NetworkError(format!("get local addr failed: {}", e)))?;
-            debug!("listening on {}", local);
-            Ok(Box::new(TcpListener::new(listener)) as Box<dyn Listener>)
-        })
-    }
-}
-
-pub struct TcpConnection {
-    stream: Mutex<TcpStream>,
-    closed: AtomicBool,
-}
-
-impl TcpConnection {
-    pub fn new(stream: TcpStream) -> Self {
-        Self {
-            stream: Mutex::new(stream),
-            closed: AtomicBool::new(false),
-        }
-    }
-}
-
-impl Connection for TcpConnection {
-    fn send(&mut self, data: Bytes) -> BoxFuture<'_, AegisResult<()>> {
-        Box::pin(async move {
-            if self.closed.load(Ordering::Acquire) {
-                return Err(AegisError::NetworkError("connection closed".into()));
-            }
-            let len = data.len() as u32;
-            let len_bytes = len.to_be_bytes();
-            let mut stream = self.stream.lock().await;
-            stream
-                .write_all(&len_bytes)
-                .await
-                .map_err(|e| AegisError::NetworkError(format!("send length failed: {}", e)))?;
-            stream
-                .write_all(&data)
-                .await
-                .map_err(|e| AegisError::NetworkError(format!("send data failed: {}", e)))?;
-            stream
-                .flush()
-                .await
-                .map_err(|e| AegisError::NetworkError(format!("flush failed: {}", e)))?;
-            Ok(())
-        })
-    }
-
-    fn receive(&mut self) -> BoxFuture<'_, AegisResult<Bytes>> {
-        Box::pin(async move {
-            if self.closed.load(Ordering::Acquire) {
-                return Err(AegisError::NetworkError("connection closed".into()));
-            }
-            let mut stream = self.stream.lock().await;
-            let mut len_buf = [0u8; 4];
-            stream
-                .read_exact(&mut len_buf)
-                .await
-                .map_err(|e| AegisError::NetworkError(format!("receive length failed: {}", e)))?;
-            let len = u32::from_be_bytes(len_buf) as usize;
-            let mut buf = vec![0u8; len];
-            stream
-                .read_exact(&mut buf)
-                .await
-                .map_err(|e| AegisError::NetworkError(format!("receive data failed: {}", e)))?;
-            Ok(Bytes::from(buf))
-        })
-    }
-
-    fn close(&mut self) -> BoxFuture<'_, AegisResult<()>> {
-        Box::pin(async move {
-            self.closed.store(true, Ordering::Release);
-            let mut stream = self.stream.lock().await;
-            stream
-                .shutdown()
-                .await
-                .map_err(|e| AegisError::NetworkError(format!("shutdown failed: {}", e)))?;
-            Ok(())
-        })
-    }
-}
+pub use connection::TcpConnection;
+pub use transport::TcpTransport;
 
 pub struct TcpListener {
     listener: TokioListener,

@@ -130,7 +130,7 @@ where
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        let cap = NonZeroUsize::new(capacity).expect("LruMetadataCache capacity must be > 0");
+        let cap = NonZeroUsize::new(capacity).unwrap_or(NonZeroUsize::MIN);
         Self::new(cap)
     }
 
@@ -323,7 +323,7 @@ where
     }
 
     pub fn with_capacity(capacity: usize, store: Arc<dyn BackingStore<K, V>>) -> Self {
-        let cap = NonZeroUsize::new(capacity).expect("TwoTierCache capacity must be > 0");
+        let cap = NonZeroUsize::new(capacity).unwrap_or(NonZeroUsize::MIN);
         Self::new(cap, store)
     }
 
