@@ -43,7 +43,9 @@ ed25519-dalek = { version = "2", features = ["serde", "pem"] }
 rand = "0.8"
 hex = "0.4"
 base64 = "0.22"
-zeroize = "=1.8.2"
+zeroize = "1"
+zeroize_derive = "1"
+
 curve25519-dalek = "4"
 typenum = "1"
 strum = { version = "0.26", features = ["derive"] }
@@ -98,9 +100,6 @@ lto = true
 codegen-units = 1
 opt-level = 3
 strip = "symbols"
-
-[patch.crates-io]
-zeroize_derive = "=1.4.3"
 
 [package.metadata.docs.rs]
 features = ["default"]

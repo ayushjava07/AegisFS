@@ -27,16 +27,15 @@ impl SymmetricKey {
     pub fn new(key: [u8; 32]) -> Self {
         Self { key }
     }
+
+    pub fn as_bytes(&self) -> &[u8; 32] {
+        &self.key
+    }
 }
 
 impl Drop for SymmetricKey {
     fn drop(&mut self) {
         self.key.zeroize();
-    }
-}
-
-    pub fn as_bytes(&self) -> &[u8; 32] {
-        &self.key
     }
 }
 
