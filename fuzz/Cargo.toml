@@ -17,30 +17,30 @@ debug = 1
 
 [[bin]]
 name = "chunking"
-path = "fuzz_targets/chunking.rs"
+path = "fuzz_targets/chunking_fuzzer.rs"
 test = false
 doc = false
 
 [[bin]]
 name = "checksum"
-path = "fuzz_targets/checksum.rs"
+path = "fuzz_targets/checksum_fuzzer.rs"
 test = false
 doc = false
 
 [[bin]]
 name = "serialization"
-path = "fuzz_targets/serialization.rs"
+path = "fuzz_targets/serialization_fuzzer.rs"
 test = false
 doc = false
 
 [[bin]]
 name = "dedup"
-path = "fuzz_targets/dedup.rs"
+path = "fuzz_targets/dedup_fuzzer.rs"
 test = false
 doc = false
 
 [[bin]]
 name = "compression"
-path = "fuzz_targets/compression.rs"
+path = "fuzz_targets/compression_fuzzer.rs"
 test = false
 doc = false
