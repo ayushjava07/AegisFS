@@ -1,6 +1,11 @@
+# Rust
 /target/
 **/*.rs.bk
 Cargo.lock.back
+
+# cargo-fuzz
+fuzz/target/
+fuzz/Cargo.lock
 
 # IDE
 .idea/
@@ -13,8 +18,12 @@ Cargo.lock.back
 .DS_Store
 Thumbs.db
 
-# Rust
-**/*.rs.bk
+# Rust metadata
+**/.rustc_info.json
+**/.cargo-lock
+**/CACHE_DIR.TAG
+
+# Misc
 *.pyc
 
 # Proptest regressions

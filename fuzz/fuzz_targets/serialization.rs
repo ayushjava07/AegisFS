@@ -2,9 +2,9 @@
 
 use libfuzzer_sys::fuzz_target;
 
+use aegisfs::core::traits::Serializer;
 use aegisfs::serialization::{BinSerializer, JsonSerializer};
 use aegisfs::core::types::*;
-use aegisfs::core::id::*;
 
 fuzz_target!(|data: &[u8]| {
     let bin = BinSerializer;

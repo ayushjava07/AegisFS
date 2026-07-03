@@ -9,6 +9,8 @@ cargo-fuzz = true
 [dependencies]
 aegisfs = { path = ".." }
 libfuzzer-sys = "0.4"
+futures = "0.3"
+tokio = { version = "1", features = ["rt", "macros"] }
 
 [profile.release]
 debug = 1
