@@ -43,5 +43,10 @@ fn bench_lru_eviction(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_lru_insert, bench_lru_lookup, bench_lru_eviction);
+criterion_group!(
+    benches,
+    bench_lru_insert,
+    bench_lru_lookup,
+    bench_lru_eviction
+);
 criterion_main!(benches);

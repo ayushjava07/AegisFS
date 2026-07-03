@@ -1,5 +1,6 @@
+use parking_lot::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use chrono::Utc;
 
@@ -55,57 +56,57 @@ impl MetricsCollector {
     }
 
     pub fn increment_chunks_stored(&self, n: u64) {
-        let state = self.inner.lock().unwrap();
+        let state = self.inner.lock();
         state.chunks_stored.fetch_add(n, Ordering::Relaxed);
     }
 
     pub fn increment_chunks_deleted(&self, n: u64) {
-        let state = self.inner.lock().unwrap();
+        let state = self.inner.lock();
         state.chunks_deleted.fetch_add(n, Ordering::Relaxed);
     }
 
     pub fn increment_read_ops(&self) {
-        let state = self.inner.lock().unwrap();
+        let state = self.inner.lock();
         state.read_ops.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn increment_write_ops(&self) {
-        let state = self.inner.lock().unwrap();
+        let state = self.inner.lock();
         state.write_ops.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn increment_sync_ops(&self) {
-        let state = self.inner.lock().unwrap();
+        let state = self.inner.lock();
         state.sync_ops.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn increment_errors(&self) {
-        let state = self.inner.lock().unwrap();
+        let state = self.inner.lock();
         state.errors.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn record_cache_hit(&self) {
-        let state = self.inner.lock().unwrap();
+        let state = self.inner.lock();
         state.cache_hits.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn record_cache_miss(&self) {
-        let state = self.inner.lock().unwrap();
+        let state = self.inner.lock();
         state.cache_misses.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn record_bytes_read(&self, n: u64) {
-        let state = self.inner.lock().unwrap();
+        let state = self.inner.lock();
         state.bytes_read.fetch_add(n, Ordering::Relaxed);
     }
 
     pub fn record_bytes_written(&self, n: u64) {
-        let state = self.inner.lock().unwrap();
+        let state = self.inner.lock();
         state.bytes_written.fetch_add(n, Ordering::Relaxed);
     }
 
     pub fn snapshot(&self) -> MetricsSnapshot {
-        let state = self.inner.lock().unwrap();
+        let state = self.inner.lock();
         MetricsSnapshot {
             timestamp: Utc::now(),
             total_chunks: state.chunks_stored.load(Ordering::Relaxed),

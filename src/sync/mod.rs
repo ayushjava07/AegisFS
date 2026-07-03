@@ -1,5 +1,5 @@
+use parking_lot::Mutex;
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
@@ -57,7 +57,7 @@ impl SyncEngine for SyncEngineImpl {
         Box::pin(async move {
             let start = Instant::now();
             {
-                let mut s = status.lock().unwrap();
+                let mut s = status.lock();
                 s.in_progress = true;
                 s.progress_percent = 0.0;
                 s.current_file = Some("starting sync".to_string());
@@ -66,7 +66,7 @@ impl SyncEngine for SyncEngineImpl {
             }
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
             {
-                let mut s = status.lock().unwrap();
+                let mut s = status.lock();
                 s.in_progress = false;
                 s.progress_percent = 100.0;
                 s.current_file = None;
@@ -90,7 +90,7 @@ impl SyncEngine for SyncEngineImpl {
         Box::pin(async move {
             let start = Instant::now();
             {
-                let mut s = status.lock().unwrap();
+                let mut s = status.lock();
                 s.in_progress = true;
                 s.progress_percent = 0.0;
                 s.current_file = Some("starting snapshot sync".to_string());
@@ -99,7 +99,7 @@ impl SyncEngine for SyncEngineImpl {
             }
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
             {
-                let mut s = status.lock().unwrap();
+                let mut s = status.lock();
                 s.in_progress = false;
                 s.progress_percent = 100.0;
                 s.current_file = None;
@@ -117,7 +117,7 @@ impl SyncEngine for SyncEngineImpl {
     fn status(&self) -> BoxFuture<'_, AegisResult<SyncStatus>> {
         let status = self.status.clone();
         Box::pin(async move {
-            let s = status.lock().unwrap();
+            let s = status.lock();
             Ok(s.clone())
         })
     }
@@ -125,7 +125,7 @@ impl SyncEngine for SyncEngineImpl {
     fn cancel(&self) -> BoxFuture<'_, AegisResult<()>> {
         let status = self.status.clone();
         Box::pin(async move {
-            let mut s = status.lock().unwrap();
+            let mut s = status.lock();
             s.in_progress = false;
             s.current_file = None;
             Ok(())

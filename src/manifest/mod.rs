@@ -75,8 +75,7 @@ impl ManifestBuilder {
             metadata: self.metadata,
         };
 
-        let serialized = serde_json::to_vec(&manifest)
-            .unwrap_or_else(|_| Vec::new());
+        let serialized = serde_json::to_vec(&manifest).unwrap_or_else(|_| Vec::new());
         if !serialized.is_empty() {
             manifest.checksum = HashValue::sha256(&serialized);
         }

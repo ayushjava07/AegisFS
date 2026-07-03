@@ -51,7 +51,7 @@ impl Scheduler for ThreadPoolScheduler {
             let jh: JoinHandle<()> = tokio::spawn(async move {
                 let res = task.await;
                 {
-                    let mut r = result.lock().unwrap();
+                    let mut r = result.lock();
                     *r = Some(res);
                 }
                 completed.store(true, Ordering::SeqCst);
@@ -302,13 +302,13 @@ mod tests {
     }
 
     struct SimpleChunkStorage {
-        chunks: std::sync::Mutex<std::collections::HashMap<ChunkId, Chunk>>,
+        chunks: parking_lot::Mutex<std::collections::HashMap<ChunkId, Chunk>>,
     }
 
     impl SimpleChunkStorage {
         fn new() -> Self {
             Self {
-                chunks: std::sync::Mutex::new(std::collections::HashMap::new()),
+                chunks: parking_lot::Mutex::new(std::collections::HashMap::new()),
             }
         }
     }
@@ -316,35 +316,35 @@ mod tests {
     impl ChunkStorage for SimpleChunkStorage {
         fn store_chunk(&self, chunk: Chunk) -> BoxFuture<'_, AegisResult<ChunkId>> {
             let id = chunk.id;
-            self.chunks.lock().unwrap().insert(id, chunk);
+            self.chunks.lock().insert(id, chunk);
             Box::pin(async move { Ok(id) })
         }
         fn read_chunk(&self, id: &ChunkId) -> BoxFuture<'_, AegisResult<Chunk>> {
             let id = *id;
-            let chunks = self.chunks.lock().unwrap().get(&id).cloned();
+            let chunks = self.chunks.lock().get(&id).cloned();
             Box::pin(async move { chunks.ok_or_else(|| AegisError::ChunkNotFound(id.to_string())) })
         }
         fn delete_chunk(&self, id: &ChunkId) -> BoxFuture<'_, AegisResult<()>> {
             let id = *id;
-            self.chunks.lock().unwrap().remove(&id);
+            self.chunks.lock().remove(&id);
             Box::pin(async move { Ok(()) })
         }
         fn has_chunk(&self, id: &ChunkId) -> BoxFuture<'_, AegisResult<bool>> {
             let id = *id;
-            let chunks = self.chunks.lock().unwrap();
+            let chunks = self.chunks.lock();
             let exists = chunks.contains_key(&id);
             Box::pin(async move { Ok(exists) })
         }
         fn list_chunks(&self) -> BoxFuture<'_, AegisResult<Vec<ChunkId>>> {
-            let ids: Vec<ChunkId> = self.chunks.lock().unwrap().keys().copied().collect();
+            let ids: Vec<ChunkId> = self.chunks.lock().keys().copied().collect();
             Box::pin(async move { Ok(ids) })
         }
         fn total_size(&self) -> BoxFuture<'_, AegisResult<u64>> {
-            let total: u64 = self.chunks.lock().unwrap().values().map(|c| c.size).sum();
+            let total: u64 = self.chunks.lock().values().map(|c| c.size).sum();
             Box::pin(async move { Ok(total) })
         }
         fn chunk_count(&self) -> BoxFuture<'_, AegisResult<u64>> {
-            let count = self.chunks.lock().unwrap().len() as u64;
+            let count = self.chunks.lock().len() as u64;
             Box::pin(async move { Ok(count) })
         }
     }

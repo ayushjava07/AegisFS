@@ -163,7 +163,8 @@ mod tests {
         fn delete_chunk(
             &self,
             id: &ChunkId,
-        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = AegisResult<()>> + Send + '_>> {
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = AegisResult<()>> + Send + '_>>
+        {
             let id = *id;
             let chunks = self.chunks.clone();
             Box::pin(async move {

@@ -81,7 +81,7 @@ impl LeaseManager {
         let leases = self.leases.lock();
         leases
             .get(name)
-            .map_or(false, |l| l.expires_at > Instant::now())
+            .is_some_and(|l| l.expires_at > Instant::now())
     }
 }
 

@@ -1,10 +1,10 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use aegisfs::checksum::{Sha256Hasher, Blake3Hasher, Xxh3Hasher, CombinedHasher};
+use aegisfs::checksum::{Blake3Hasher, CombinedHasher, Sha256Hasher, Xxh3Hasher};
 use aegisfs::core::traits::Hasher;
 
 fn bench_sha256_hash(c: &mut Criterion) {
-    let hasher = Sha256Hasher::default();
+    let hasher = Sha256Hasher;
     let data = vec![0xABu8; 1048576];
 
     c.bench_function("sha256_hash_1mb", |b| {
@@ -13,7 +13,7 @@ fn bench_sha256_hash(c: &mut Criterion) {
 }
 
 fn bench_blake3_hash(c: &mut Criterion) {
-    let hasher = Blake3Hasher::default();
+    let hasher = Blake3Hasher;
     let data = vec![0xABu8; 1048576];
 
     c.bench_function("blake3_hash_1mb", |b| {
@@ -22,7 +22,7 @@ fn bench_blake3_hash(c: &mut Criterion) {
 }
 
 fn bench_xxh3_hash(c: &mut Criterion) {
-    let hasher = Xxh3Hasher::default();
+    let hasher = Xxh3Hasher;
     let data = vec![0xABu8; 1048576];
 
     c.bench_function("xxh3_hash_1mb", |b| {
@@ -39,6 +39,11 @@ fn bench_combined_hash(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_sha256_hash, bench_blake3_hash,
-                 bench_xxh3_hash, bench_combined_hash);
+criterion_group!(
+    benches,
+    bench_sha256_hash,
+    bench_blake3_hash,
+    bench_xxh3_hash,
+    bench_combined_hash
+);
 criterion_main!(benches);

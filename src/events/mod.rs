@@ -1,5 +1,3 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use chrono::Utc;
 use dashmap::DashMap;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
@@ -9,13 +7,7 @@ use crate::core::error::AegisResult;
 use crate::core::traits::{EventBus, EventReceiver};
 use crate::core::types::{Event, EventKind, EventSeverity};
 
-static NEXT_RECEIVER_ID: AtomicU64 = AtomicU64::new(1);
-
-fn next_receiver_id() -> u64 {
-    NEXT_RECEIVER_ID.fetch_add(1, Ordering::Relaxed)
-}
-
-type SubscriberMap = DashMap<EventKind, Vec<(u64, UnboundedSender<Event>)>>;
+type SubscriberMap = DashMap<EventKind, Vec<(Uuid, UnboundedSender<Event>)>>;
 
 pub struct InMemoryEventBus {
     subscribers: SubscriberMap,
@@ -35,7 +27,7 @@ impl InMemoryEventBus {
     }
 
     pub fn subscribe_sync(&self, kind: EventKind) -> ChannelEventReceiver {
-        let id = next_receiver_id();
+        let id = Uuid::new_v4();
         let (tx, rx) = unbounded_channel();
         self.subscribers.entry(kind).or_default().push((id, tx));
         ChannelEventReceiver {
@@ -45,7 +37,7 @@ impl InMemoryEventBus {
         }
     }
 
-    pub fn unsubscribe_sync(&self, kind: EventKind, receiver_id: u64) {
+    pub fn unsubscribe_sync(&self, kind: EventKind, receiver_id: Uuid) {
         if let Some(mut subscribers) = self.subscribers.get_mut(&kind) {
             subscribers.retain(|(id, _)| *id != receiver_id);
         }
@@ -74,7 +66,7 @@ impl EventBus for InMemoryEventBus {
         kind: EventKind,
     ) -> crate::core::traits::BoxFuture<'_, AegisResult<Box<dyn crate::core::traits::EventReceiver>>>
     {
-        let id = next_receiver_id();
+        let id = Uuid::new_v4();
         let (tx, rx) = unbounded_channel();
         self.subscribers.entry(kind).or_default().push((id, tx));
         Box::pin(async move {
@@ -93,10 +85,9 @@ impl EventBus for InMemoryEventBus {
         kind: EventKind,
         receiver_id: Uuid,
     ) -> crate::core::traits::BoxFuture<'_, AegisResult<()>> {
-        let rid = receiver_id.as_u128() as u64;
         Box::pin(async move {
             if let Some(mut subscribers) = self.subscribers.get_mut(&kind) {
-                subscribers.retain(|(id, _)| *id != rid);
+                subscribers.retain(|(id, _)| *id != receiver_id);
             }
             Ok(())
         })
@@ -105,7 +96,7 @@ impl EventBus for InMemoryEventBus {
 
 pub struct ChannelEventReceiver {
     kind: EventKind,
-    receiver_id: u64,
+    receiver_id: Uuid,
     inner: UnboundedReceiver<Event>,
 }
 
@@ -114,7 +105,7 @@ impl ChannelEventReceiver {
         self.kind
     }
 
-    pub fn receiver_id(&self) -> u64 {
+    pub fn receiver_id(&self) -> Uuid {
         self.receiver_id
     }
 
@@ -361,10 +352,10 @@ mod tests {
         let bus = InMemoryEventBus::new();
 
         let receiver = bus.subscribe_sync(EventKind::ChunkStored);
-        let receiver_id = Uuid::from_u128(receiver.receiver_id() as u128);
+        let receiver_id = receiver.receiver_id();
         drop(receiver);
 
-        bus.unsubscribe_sync(EventKind::ChunkStored, receiver_id.as_u128() as u64);
+        bus.unsubscribe_sync(EventKind::ChunkStored, receiver_id);
 
         let subscribers = bus.subscribers.get(&EventKind::ChunkStored);
         assert!(subscribers.is_none() || subscribers.unwrap().is_empty());

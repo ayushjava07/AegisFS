@@ -1,5 +1,6 @@
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
@@ -407,7 +408,7 @@ impl TreeVerificationResult {
 pub struct TaskHandle<T> {
     pub id: TaskId,
     pub(crate) completed: std::sync::Arc<std::sync::atomic::AtomicBool>,
-    pub(crate) result: std::sync::Arc<std::sync::Mutex<Option<AegisResult<T>>>>,
+    pub(crate) result: std::sync::Arc<Mutex<Option<AegisResult<T>>>>,
 }
 
 impl<T: Send + 'static> TaskHandle<T> {
@@ -415,12 +416,12 @@ impl<T: Send + 'static> TaskHandle<T> {
         Self {
             id,
             completed: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            result: std::sync::Arc::new(std::sync::Mutex::new(None)),
+            result: std::sync::Arc::new(Mutex::new(None)),
         }
     }
 
     pub fn complete(&self, result: AegisResult<T>) {
-        let mut res = self.result.lock().unwrap();
+        let mut res = self.result.lock();
         *res = Some(result);
         self.completed
             .store(true, std::sync::atomic::Ordering::SeqCst);
@@ -436,7 +437,7 @@ impl<T: Send + 'static> TaskHandle<T> {
     {
         loop {
             if self.is_completed() {
-                let mut res = self.result.lock().unwrap();
+                let mut res = self.result.lock();
                 if let Some(r) = res.take() {
                     return r;
                 }

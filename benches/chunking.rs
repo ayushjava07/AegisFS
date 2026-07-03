@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use aegisfs::chunking::{ContentDefinedChunker, FixedSizeChunker, ChunkerConfig};
+use aegisfs::chunking::{ChunkerConfig, ContentDefinedChunker, FixedSizeChunker};
 use aegisfs::core::traits::Chunker;
 
 fn bench_fixed_chunker(c: &mut Criterion) {
@@ -44,5 +44,10 @@ fn bench_cdc_repetitive(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_fixed_chunker, bench_cdc_chunker, bench_cdc_repetitive);
+criterion_group!(
+    benches,
+    bench_fixed_chunker,
+    bench_cdc_chunker,
+    bench_cdc_repetitive
+);
 criterion_main!(benches);

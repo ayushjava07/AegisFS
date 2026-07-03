@@ -24,9 +24,11 @@ impl NetworkTransport for TcpTransport {
     fn connect(&self, endpoint: &str) -> BoxFuture<'_, AegisResult<Box<dyn Connection>>> {
         let endpoint = endpoint.to_string();
         Box::pin(async move {
-            let stream = tokio::net::TcpStream::connect(&endpoint).await.map_err(|e| {
-                AegisError::NetworkError(format!("connect failed to {}: {}", endpoint, e))
-            })?;
+            let stream = tokio::net::TcpStream::connect(&endpoint)
+                .await
+                .map_err(|e| {
+                    AegisError::NetworkError(format!("connect failed to {}: {}", endpoint, e))
+                })?;
             debug!("connected to {}", endpoint);
             Ok(Box::new(TcpConnection::new(stream)) as Box<dyn Connection>)
         })

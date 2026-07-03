@@ -35,12 +35,12 @@ pub mod scope;
 pub mod serialization;
 pub mod snapshot;
 pub mod sync;
-pub mod throttle;
 pub mod telemetry;
+pub mod throttle;
 pub mod trace;
 pub mod utils;
-pub mod version;
 pub mod verification;
+pub mod version;
 pub mod watch;
 
 pub use core::error::*;

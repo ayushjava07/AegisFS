@@ -1,10 +1,10 @@
 use proptest::prelude::*;
 
-use aegisfs::chunking::{ContentDefinedChunker, FixedSizeChunker, ChunkerConfig};
-use aegisfs::checksum::{Sha256Hasher, Blake3Hasher, Xxh3Hasher, CombinedHasher};
-use aegisfs::compression::{ZstdCompression, NoopCompression};
-use aegisfs::core::id::{ChunkId, HashValue, NodeId, SnapshotId, ArchiveId, ManifestId};
-use aegisfs::core::traits::{Chunker, Hasher, CompressionProvider, DedupIndex, Serializer};
+use aegisfs::checksum::{Blake3Hasher, CombinedHasher, Sha256Hasher, Xxh3Hasher};
+use aegisfs::chunking::{ChunkerConfig, ContentDefinedChunker, FixedSizeChunker};
+use aegisfs::compression::{NoopCompression, ZstdCompression};
+use aegisfs::core::id::{ArchiveId, ChunkId, HashValue, ManifestId, NodeId};
+use aegisfs::core::traits::{Chunker, CompressionProvider, DedupIndex, Hasher, Serializer};
 use aegisfs::core::types::*;
 use aegisfs::dedup::MemoryDedupIndex;
 use aegisfs::serialization::{BinSerializer, JsonSerializer, SerializationFormat};
@@ -17,7 +17,7 @@ proptest! {
     #[test]
     fn chunk_bincode_roundtrip(data: Vec<u8>) {
         let id = ChunkId::from_data(&data);
-        let chunk = Chunk::new(id.clone(), bytes::Bytes::copy_from_slice(&data));
+        let chunk = Chunk::new(id, bytes::Bytes::copy_from_slice(&data));
         let serializer = BinSerializer;
         let serialized = serializer.serialize(&chunk).unwrap();
         let deserialized: Chunk = serializer.deserialize(&serialized).unwrap();
@@ -29,7 +29,7 @@ proptest! {
     #[test]
     fn chunk_json_roundtrip(data: Vec<u8>) {
         let id = ChunkId::from_data(&data);
-        let chunk = Chunk::new(id.clone(), bytes::Bytes::copy_from_slice(&data));
+        let chunk = Chunk::new(id, bytes::Bytes::copy_from_slice(&data));
         let serializer = JsonSerializer;
         let serialized = serializer.serialize(&chunk).unwrap();
         let deserialized: Chunk = serializer.deserialize(&serialized).unwrap();
@@ -97,8 +97,13 @@ proptest! {
         let chunks = chunker.chunk_data(&data).unwrap();
         for chunk in &chunks {
             prop_assert!(chunk.size > 0, "chunk size must be > 0");
-            let size = chunk.size as usize;
-            prop_assert!(size >= 64, "chunk size must be >= min_size");
+        }
+        // min_size is only guaranteed when data is large enough
+        if data.len() >= 64 {
+            for chunk in &chunks[..chunks.len().saturating_sub(1)] {
+                let size = chunk.size as usize;
+                prop_assert!(size >= 64, "non-final chunk size must be >= min_size; got {}", size);
+            }
         }
         let total: u64 = chunks.iter().map(|c| c.size).sum();
         prop_assert_eq!(total, data.len() as u64);
@@ -110,7 +115,7 @@ proptest! {
 
     #[test]
     fn sha256_deterministic(data: Vec<u8>) {
-        let hasher = Sha256Hasher::default();
+        let hasher = Sha256Hasher;
         let h1 = hasher.hash(&data);
         let h2 = hasher.hash(&data);
         prop_assert_eq!(h1, h2);
@@ -118,7 +123,7 @@ proptest! {
 
     #[test]
     fn blake3_deterministic(data: Vec<u8>) {
-        let hasher = Blake3Hasher::default();
+        let hasher = Blake3Hasher;
         let h1 = hasher.hash(&data);
         let h2 = hasher.hash(&data);
         prop_assert_eq!(h1, h2);
@@ -126,7 +131,7 @@ proptest! {
 
     #[test]
     fn xxh3_deterministic(data: Vec<u8>) {
-        let hasher = Xxh3Hasher::default();
+        let hasher = Xxh3Hasher;
         let h1 = hasher.hash(&data);
         let h2 = hasher.hash(&data);
         prop_assert_eq!(h1, h2);
@@ -199,18 +204,17 @@ proptest! {
     #[test]
     fn format_detection_json(starts_with_brace in proptest::bool::ANY) {
         let data = if starts_with_brace {
-            b"{".to_vec()
+            b"{key:value}".to_vec()
         } else {
-            b"\x00\x00\x00\x00".to_vec()
+            let mut buf = vec![0u8; 8];
+            buf[0] = 0x00;
+            buf
         };
         let result = SerializationFormat::detect(&data);
         if starts_with_brace {
-            prop_assert!(result.is_ok());
+            prop_assert_eq!(result.unwrap(), SerializationFormat::Json);
         } else {
-            // binary data >= 4 bytes should detect as binary
-            if data.len() >= 4 {
-                prop_assert_eq!(result.unwrap(), SerializationFormat::Binary);
-            }
+            prop_assert_eq!(result.unwrap(), SerializationFormat::Binary);
         }
     }
 

@@ -1,8 +1,14 @@
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
+type ProgressListener = Box<dyn Fn(ProgressEvent) + Send + Sync>;
+
 #[derive(Debug, Clone)]
 pub enum ProgressEvent {
-    Advanced { current: u64, total: u64, percent: f64 },
+    Advanced {
+        current: u64,
+        total: u64,
+        percent: f64,
+    },
     MessageChanged(String),
     Completed,
 }
@@ -12,7 +18,7 @@ pub struct ProgressTracker {
     total: u64,
     message: parking_lot::Mutex<String>,
     completed: AtomicBool,
-    listeners: parking_lot::Mutex<Vec<Box<dyn Fn(ProgressEvent) + Send + Sync>>>,
+    listeners: parking_lot::Mutex<Vec<ProgressListener>>,
 }
 
 impl ProgressTracker {

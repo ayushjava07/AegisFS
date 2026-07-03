@@ -3,8 +3,8 @@ use std::sync::Arc;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use aegisfs::chunking::FixedSizeChunker;
-use aegisfs::core::traits::{Chunker, DedupIndex};
 use aegisfs::core::id::{ChunkId, HashValue};
+use aegisfs::core::traits::{Chunker, DedupIndex};
 use aegisfs::dedup::MemoryDedupIndex;
 
 fn bench_dedup_insert(c: &mut Criterion) {

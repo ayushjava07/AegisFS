@@ -1,6 +1,6 @@
+use parking_lot::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::time::Instant;
 
 use crate::core::error::{AegisError, AegisResult};
@@ -129,7 +129,7 @@ impl ReplicationEngine for ReplicationEngineImpl {
         Box::pin(async move {
             active.fetch_add(1, Ordering::SeqCst);
             {
-                let mut s = status.lock().unwrap();
+                let mut s = status.lock();
                 s.active_jobs = active.load(Ordering::SeqCst);
             }
 
@@ -144,7 +144,7 @@ impl ReplicationEngine for ReplicationEngineImpl {
             completed.fetch_add(1, Ordering::SeqCst);
             total_bytes.fetch_add(simulated_bytes as usize, Ordering::SeqCst);
 
-            let mut s = status.lock().unwrap();
+            let mut s = status.lock();
             s.active_jobs = active.load(Ordering::SeqCst);
             s.completed_jobs = completed.load(Ordering::SeqCst);
             s.total_bytes_replicated = total_bytes.load(Ordering::SeqCst) as u64;
@@ -161,7 +161,7 @@ impl ReplicationEngine for ReplicationEngineImpl {
     fn configure_replication(&self, config: ReplicationConfig) -> BoxFuture<'_, AegisResult<()>> {
         Box::pin(async move {
             config.validate()?;
-            let mut cfg = self.config.lock().unwrap();
+            let mut cfg = self.config.lock();
             *cfg = config;
             Ok(())
         })
@@ -170,7 +170,7 @@ impl ReplicationEngine for ReplicationEngineImpl {
     fn status(&self) -> BoxFuture<'_, AegisResult<ReplicationStatus>> {
         let status = self.status.clone();
         Box::pin(async move {
-            let s = status.lock().unwrap();
+            let s = status.lock();
             Ok(s.clone())
         })
     }

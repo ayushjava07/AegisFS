@@ -185,9 +185,13 @@ impl SnapshotManager for SnapshotManagerImpl {
             }
 
             for id in base_ids.intersection(&target_ids) {
-                let base_node = base_nodes.iter().find(|n| n.id == *id)
+                let base_node = base_nodes
+                    .iter()
+                    .find(|n| n.id == *id)
                     .ok_or_else(|| AegisError::NodeNotFound(format!("base node {}", id)))?;
-                let target_node = target_nodes.iter().find(|n| n.id == *id)
+                let target_node = target_nodes
+                    .iter()
+                    .find(|n| n.id == *id)
                     .ok_or_else(|| AegisError::NodeNotFound(format!("target node {}", id)))?;
                 if base_node.modified_at != target_node.modified_at {
                     diff.modified.push((base_node.id, target_node.id));
@@ -211,13 +215,13 @@ mod tests {
     use std::sync::Arc;
 
     struct MockSnapshotStore {
-        snapshots: std::sync::Mutex<std::collections::HashMap<SnapshotId, Snapshot>>,
+        snapshots: parking_lot::Mutex<std::collections::HashMap<SnapshotId, Snapshot>>,
     }
 
     impl MockSnapshotStore {
         fn new() -> Self {
             Self {
-                snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
+                snapshots: parking_lot::Mutex::new(std::collections::HashMap::new()),
             }
         }
     }
@@ -225,13 +229,13 @@ mod tests {
     impl SnapshotStore for MockSnapshotStore {
         fn create_snapshot(&self, snapshot: Snapshot) -> BoxFuture<'_, AegisResult<SnapshotId>> {
             let id = snapshot.id;
-            self.snapshots.lock().unwrap().insert(id, snapshot);
+            self.snapshots.lock().insert(id, snapshot);
             Box::pin(async move { Ok(id) })
         }
 
         fn get_snapshot(&self, id: &SnapshotId) -> BoxFuture<'_, AegisResult<Snapshot>> {
             let id = *id;
-            let snapshots = self.snapshots.lock().unwrap();
+            let snapshots = self.snapshots.lock();
             let res = snapshots.get(&id).cloned();
             Box::pin(async move {
                 Ok(res.unwrap_or_else(|| Snapshot {
@@ -254,7 +258,7 @@ mod tests {
 
         fn delete_snapshot(&self, id: &SnapshotId) -> BoxFuture<'_, AegisResult<()>> {
             let id = *id;
-            self.snapshots.lock().unwrap().remove(&id);
+            self.snapshots.lock().remove(&id);
             Box::pin(async move { Ok(()) })
         }
 
@@ -262,12 +266,12 @@ mod tests {
             &self,
             _archive_id: &ArchiveId,
         ) -> BoxFuture<'_, AegisResult<Vec<Snapshot>>> {
-            let list: Vec<Snapshot> = self.snapshots.lock().unwrap().values().cloned().collect();
+            let list: Vec<Snapshot> = self.snapshots.lock().values().cloned().collect();
             Box::pin(async move { Ok(list) })
         }
 
         fn latest_snapshot(&self, _archive_id: &ArchiveId) -> BoxFuture<'_, AegisResult<Snapshot>> {
-            let snapshots = self.snapshots.lock().unwrap();
+            let snapshots = self.snapshots.lock();
             let latest = snapshots.values().max_by_key(|s| s.timestamp).cloned();
             Box::pin(
                 async move { latest.ok_or_else(|| AegisError::SnapshotNotFound("none".into())) },

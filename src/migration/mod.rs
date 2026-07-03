@@ -17,12 +17,7 @@ impl MigrationManager {
         }
     }
 
-    pub fn register(
-        &mut self,
-        from_version: &str,
-        to_version: &str,
-        migration: MigrationFn,
-    ) {
+    pub fn register(&mut self, from_version: &str, to_version: &str, migration: MigrationFn) {
         self.migrations.insert(
             (from_version.to_string(), to_version.to_string()),
             migration,
@@ -35,8 +30,8 @@ impl MigrationManager {
         }
 
         let mut adj: HashMap<&str, Vec<&str>> = HashMap::new();
-        for ((f, t), _) in &self.migrations {
-            adj.entry(f).or_default().push(t);
+        for (f, t) in self.migrations.keys() {
+            adj.entry(f.as_str()).or_default().push(t.as_str());
         }
 
         let mut visited: HashSet<&str> = HashSet::new();
