@@ -195,7 +195,8 @@ impl SnapshotManager for SnapshotManagerImpl {
                     .ok_or_else(|| AegisError::NodeNotFound(format!("target node {}", id)))?;
                 if base_node.modified_at != target_node.modified_at {
                     diff.modified.push((base_node.id, target_node.id));
-                    diff.size_delta += target_node.size as i64 - base_node.size as i64;
+                    let delta = (target_node.size as i128).saturating_sub(base_node.size as i128);
+                    diff.size_delta = diff.size_delta.saturating_add(delta as i64);
                 } else {
                     diff.unchanged.push(*id);
                 }

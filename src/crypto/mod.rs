@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use zeroize::ZeroizeOnDrop;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::core::error::{AegisError, AegisResult};
 use crate::core::traits::EncryptionProvider;
@@ -17,15 +17,23 @@ use crate::core::types::EncryptionAlgorithm;
 // ---------------------------------------------------------------------------
 
 /// A 256-bit symmetric key that is zeroed on drop.
-#[derive(ZeroizeOnDrop)]
 pub struct SymmetricKey {
     key: [u8; 32],
 }
+
+impl ZeroizeOnDrop for SymmetricKey {}
 
 impl SymmetricKey {
     pub fn new(key: [u8; 32]) -> Self {
         Self { key }
     }
+}
+
+impl Drop for SymmetricKey {
+    fn drop(&mut self) {
+        self.key.zeroize();
+    }
+}
 
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.key

@@ -1,3 +1,21 @@
 /target/
 **/*.rs.bk
 Cargo.lock.back
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Rust
+**/*.rs.bk
+*.pyc
+
+# Proptest regressions
+**/proptest-regressions/

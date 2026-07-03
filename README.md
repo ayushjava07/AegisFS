@@ -1,5 +1,9 @@
 # AegisFS
 
+[![CI](https://github.com/aegisfs/aegisfs/actions/workflows/ci.yml/badge.svg)](https://github.com/aegisfs/aegisfs/actions/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/rust-1.82%2B-blue)](https://www.rust-lang.org)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](https://github.com/aegisfs/aegisfs#license)
+
 AegisFS is a high-performance, secure, deduplicating virtual filesystem and archive storage engine built in Rust. It is designed for robust data backups, versioned snapshots, and encrypted/compressed cold-storage archives.
 
 ## Key Features
@@ -50,7 +54,7 @@ graph TD
 ## Build & Installation
 
 ### Prerequisites
-- **Rust**: AegisFS requires Rust version `1.70.0` or higher.
+- **Rust**: AegisFS requires Rust version `1.82.0` or higher.
 - **Clang/LLVM** (optional, required only for fuzzing): To run LibFuzzer targets.
 
 ### Compilation
@@ -72,7 +76,14 @@ cargo test --all-features
 ```
 
 ### 2. Running Benchmarks
-We use `criterion` to benchmark the hot paths (deduplication, serialization, compression, and caching). To compile and run all benchmarks:
+We use `criterion` to benchmark the hot paths. Benchmarks include:
+- **chunking**: Fixed-size and CDC chunking throughput.
+- **dedup**: Dedup index insert and lookup performance.
+- **checksum**: SHA-256, BLAKE3, xxHash3, and Combined hasher throughput.
+- **serialization**: Binary and JSON serialize/deserialize throughput.
+- **cache**: LRU cache insert, lookup, and eviction performance.
+
+To compile and run all benchmarks:
 ```bash
 cargo bench
 ```
@@ -92,9 +103,11 @@ cargo install cargo-fuzz
 
 #### Executing Fuzz Targets
 Fuzz targets are located in the `fuzz/` directory:
-- **`fuzz_chunking`**: Fuzzes chunking configurations (Fixed & CDC) with randomized bounds.
-- **`fuzz_serialization`**: Fuzzes deserialization robustness against malicious byte inputs.
-- **`fuzz_crypto`**: Fuzzes encryption roundtrips and malformed ciphertext handling.
+- **`chunking`**: Fuzzes chunking configurations (Fixed & CDC) with randomized bounds.
+- **`checksum`**: Fuzzes checksum computation (SHA-256, BLAKE3, xxHash3, Combined) invariants.
+- **`serialization`**: Fuzzes deserialization robustness against malicious byte inputs.
+- **`dedup`**: Fuzzes deduplication engine ingest and duplicate detection.
+- **`compression`**: Fuzzes compression/decompression roundtrips (Zstd, Noop).
 
 Run a specific target:
 ```bash
@@ -110,7 +123,7 @@ Before submitting a release, verify all components satisfy the production qualit
 | Phase | Description | Status |
 |---|---|---|
 | **Build** | Crate compiles successfully with zero errors across all feature gates. | ✓ Pass |
-| **Test** | All 508 unit tests and the end-to-end integration test pass. | ✓ Pass |
+| **Test** | All 556 unit, integration, and property tests pass. | ✓ Pass |
 | **Clippy** | No lints or warnings with `--all-features`. | ✓ Pass |
 | **Formatting** | Clean code formatting checked via `cargo fmt -- --check`. | ✓ Pass |
 | **Benchmarks** | Hot paths benchmarked and benchmark binaries compile successfully. | ✓ Pass |
@@ -121,4 +134,4 @@ Before submitting a release, verify all components satisfy the production qualit
 ---
 
 ## License
-AegisFS is distributed under the MIT License.
+AegisFS is dual-licensed under **MIT** OR **Apache-2.0** (your choice).

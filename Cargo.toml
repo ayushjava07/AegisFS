@@ -5,11 +5,13 @@ edition = "2021"
 description = "A virtual layered filesystem library supporting encrypted virtual archives, incremental snapshots, deduplicated chunks, integrity verification, and asynchronous file synchronization."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/aegisfs/aegisfs"
+homepage = "https://github.com/aegisfs/aegisfs"
+readme = "README.md"
 keywords = ["filesystem", "storage", "deduplication", "snapshot", "encryption"]
 categories = ["filesystem", "compression", "cryptography"]
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "io-util", "time", "fs", "macros"] }
 anyhow = "1"
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
@@ -41,7 +43,7 @@ ed25519-dalek = { version = "2", features = ["serde", "pem"] }
 rand = "0.8"
 hex = "0.4"
 base64 = "0.22"
-zeroize = { version = "1", features = ["zeroize_derive"] }
+zeroize = "=1.8.2"
 curve25519-dalek = "4"
 typenum = "1"
 strum = { version = "0.26", features = ["derive"] }
@@ -90,6 +92,15 @@ harness = false
 [[bench]]
 name = "cache"
 harness = false
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = "symbols"
+
+[patch.crates-io]
+zeroize_derive = "=1.4.3"
 
 [package.metadata.docs.rs]
 features = ["default"]
