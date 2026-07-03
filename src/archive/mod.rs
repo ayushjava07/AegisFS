@@ -263,6 +263,22 @@ impl ArchiveManager for ArchiveManagerImpl {
 
             let manifest_store = Arc::new(crate::manifest::MemoryManifestStore::new());
             let metadata = Arc::new(crate::metadata::MemoryMetadataIndex::new());
+
+            // Initialize the root node in the metadata store
+            let now = chrono::Utc::now();
+            let root = Node {
+                id: NodeId::root(),
+                name: String::from("/"),
+                kind: NodeKind::Directory,
+                size: 0,
+                mode: NodePermissions::default_for("aegisfs"),
+                created_at: now,
+                modified_at: now,
+                content_hash: None,
+                metadata: NodeMetadata::default(),
+            };
+            metadata.put_node(root).await?;
+
             let chunker: Arc<dyn Chunker> =
                 Arc::new(crate::chunking::FixedSizeChunker::new(config.chunk_size));
 

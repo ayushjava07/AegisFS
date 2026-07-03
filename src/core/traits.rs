@@ -71,6 +71,9 @@ pub trait MetadataIndex: Send + Sync {
     ) -> BoxFuture<'_, AegisResult<Option<Node>>>;
     fn search(&self, query: &dyn MetadataQuery) -> BoxFuture<'_, AegisResult<Vec<Node>>>;
     fn len(&self) -> BoxFuture<'_, AegisResult<u64>>;
+    fn add_child(&self, parent: &NodeId, child: &NodeId) -> BoxFuture<'_, AegisResult<()>>;
+    fn remove_child(&self, parent: &NodeId, child: &NodeId) -> BoxFuture<'_, AegisResult<()>>;
+    fn get_parent(&self, child_id: &NodeId) -> BoxFuture<'_, AegisResult<Option<NodeId>>>;
 }
 
 pub trait MetadataQuery {

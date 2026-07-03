@@ -9,6 +9,7 @@ use crate::core::types::*;
 pub struct MemoryMetadataIndex {
     nodes: DashMap<NodeId, Node>,
     children: DashMap<NodeId, Vec<NodeId>>,
+    parents: DashMap<NodeId, NodeId>,
 }
 
 impl MemoryMetadataIndex {
@@ -16,17 +17,20 @@ impl MemoryMetadataIndex {
         Self {
             nodes: DashMap::new(),
             children: DashMap::new(),
+            parents: DashMap::new(),
         }
     }
 
     pub fn add_child(&self, parent: &NodeId, child: &NodeId) {
         self.children.entry(*parent).or_default().push(*child);
+        self.parents.insert(*child, *parent);
     }
 
     pub fn remove_child(&self, parent: &NodeId, child: &NodeId) {
         if let Some(mut children) = self.children.get_mut(parent) {
             children.retain(|c| c != child);
         }
+        self.parents.remove(child);
     }
 }
 
@@ -62,9 +66,8 @@ impl MetadataIndex for MemoryMetadataIndex {
             }
             self.nodes.remove(&id);
 
-            let parent_keys: Vec<NodeId> = self.children.iter().map(|r| *r.key()).collect();
-            for parent_key in parent_keys {
-                if let Some(mut children) = self.children.get_mut(&parent_key) {
+            if let Some((_, parent_id)) = self.parents.remove(&id) {
+                if let Some(mut children) = self.children.get_mut(&parent_id) {
                     children.retain(|c| *c != id);
                 }
             }
@@ -156,6 +159,29 @@ impl MetadataIndex for MemoryMetadataIndex {
 
     fn len(&self) -> BoxFuture<'_, AegisResult<u64>> {
         Box::pin(async move { Ok(self.nodes.len() as u64) })
+    }
+
+    fn add_child(&self, parent: &NodeId, child: &NodeId) -> BoxFuture<'_, AegisResult<()>> {
+        let parent = *parent;
+        let child = *child;
+        Box::pin(async move {
+            self.add_child(&parent, &child);
+            Ok(())
+        })
+    }
+
+    fn remove_child(&self, parent: &NodeId, child: &NodeId) -> BoxFuture<'_, AegisResult<()>> {
+        let parent = *parent;
+        let child = *child;
+        Box::pin(async move {
+            self.remove_child(&parent, &child);
+            Ok(())
+        })
+    }
+
+    fn get_parent(&self, child_id: &NodeId) -> BoxFuture<'_, AegisResult<Option<NodeId>>> {
+        let child_id = *child_id;
+        Box::pin(async move { Ok(self.parents.get(&child_id).map(|r| *r.value())) })
     }
 }
 

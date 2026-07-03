@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use chrono::Utc;
-use dashmap::DashMap;
 
 use crate::core::error::{AegisError, AegisResult};
 use crate::core::traits::*;
@@ -15,8 +14,6 @@ pub struct VirtualFileSystemImpl {
     metadata: Arc<dyn MetadataIndex>,
     storage: Arc<dyn ChunkStorage>,
     dedup: Arc<DedupEngine>,
-    children: Arc<DashMap<NodeId, Vec<NodeId>>>,
-    parents: Arc<DashMap<NodeId, NodeId>>,
 }
 
 impl VirtualFileSystemImpl {
@@ -29,42 +26,30 @@ impl VirtualFileSystemImpl {
             metadata,
             storage,
             dedup,
-            children: Arc::new(DashMap::new()),
-            parents: Arc::new(DashMap::new()),
         }
     }
 
     async fn delete_node_recursive(
         metadata: Arc<dyn MetadataIndex>,
-        children: Arc<DashMap<NodeId, Vec<NodeId>>>,
-        parents: Arc<DashMap<NodeId, NodeId>>,
         node_id: NodeId,
     ) -> AegisResult<()> {
-        let child_ids = children
-            .get(&node_id)
-            .map(|r| r.clone())
-            .unwrap_or_default();
+        let child_ids: Vec<NodeId> = metadata
+            .list_children(&node_id)
+            .await?
+            .into_iter()
+            .map(|n| n.id)
+            .collect();
 
         for child_id in child_ids {
-            Box::pin(Self::delete_node_recursive(
-                metadata.clone(),
-                children.clone(),
-                parents.clone(),
-                child_id,
-            ))
-            .await?;
+            Box::pin(Self::delete_node_recursive(metadata.clone(), child_id)).await?;
         }
 
-        let parent_id = parents.get(&node_id).map(|p| *p.value());
+        let parent_id = metadata.get_parent(&node_id).await?;
         if let Some(parent_id) = parent_id {
-            if let Some(mut siblings) = children.get_mut(&parent_id) {
-                siblings.retain(|c| *c != node_id);
-            }
-            parents.remove(&node_id);
+            metadata.remove_child(&parent_id, &node_id).await?;
         }
 
         metadata.delete_node(&node_id).await?;
-        children.remove(&node_id);
 
         Ok(())
     }
@@ -80,8 +65,6 @@ impl VirtualFileSystem for VirtualFileSystemImpl {
         let parent = *parent;
         let name = name.to_string();
         let metadata = self.metadata.clone();
-        let children = self.children.clone();
-        let parents = self.parents.clone();
 
         Box::pin(async move {
             if name.is_empty() {
@@ -97,16 +80,11 @@ impl VirtualFileSystem for VirtualFileSystemImpl {
                 ));
             }
 
-            let child_ids = children.get(&parent).map(|r| r.clone()).unwrap_or_default();
-            for child_id in &child_ids {
-                if let Ok(child) = metadata.get_node(child_id).await {
-                    if child.name == name {
-                        return Err(AegisError::AlreadyExists(format!(
-                            "node '{}' already exists under parent",
-                            name
-                        )));
-                    }
-                }
+            if let Some(_existing) = metadata.find_by_name(&parent, &name).await? {
+                return Err(AegisError::AlreadyExists(format!(
+                    "node '{}' already exists under parent",
+                    name
+                )));
             }
 
             let id = NodeId::new();
@@ -124,8 +102,7 @@ impl VirtualFileSystem for VirtualFileSystemImpl {
             };
 
             metadata.put_node(node).await?;
-            children.entry(parent).or_default().push(id);
-            parents.insert(id, parent);
+            metadata.add_child(&parent, &id).await?;
 
             Ok(id)
         })
@@ -133,13 +110,9 @@ impl VirtualFileSystem for VirtualFileSystemImpl {
 
     fn delete_node(&self, node_id: &NodeId) -> BoxFuture<'_, AegisResult<()>> {
         let metadata = self.metadata.clone();
-        let children = self.children.clone();
-        let parents = self.parents.clone();
         let node_id = *node_id;
 
-        Box::pin(
-            async move { Self::delete_node_recursive(metadata, children, parents, node_id).await },
-        )
+        Box::pin(async move { Self::delete_node_recursive(metadata, node_id).await })
     }
 
     fn read_node(&self, node_id: &NodeId) -> BoxFuture<'_, AegisResult<Node>> {
@@ -214,7 +187,6 @@ impl VirtualFileSystem for VirtualFileSystemImpl {
 
     fn list_directory(&self, node_id: &NodeId) -> BoxFuture<'_, AegisResult<Vec<Node>>> {
         let metadata = self.metadata.clone();
-        let children = self.children.clone();
         let node_id = *node_id;
 
         Box::pin(async move {
@@ -225,25 +197,12 @@ impl VirtualFileSystem for VirtualFileSystemImpl {
                 ));
             }
 
-            let child_ids = children
-                .get(&node_id)
-                .map(|r| r.clone())
-                .unwrap_or_default();
-
-            let mut nodes = Vec::with_capacity(child_ids.len());
-            for child_id in &child_ids {
-                if let Ok(node) = metadata.get_node(child_id).await {
-                    nodes.push(node);
-                }
-            }
-
-            Ok(nodes)
+            metadata.list_children(&node_id).await
         })
     }
 
     fn resolve_path(&self, path: &str) -> BoxFuture<'_, AegisResult<NodeId>> {
         let metadata = self.metadata.clone();
-        let children = self.children.clone();
         let path = path.to_string();
 
         Box::pin(async move {
@@ -262,23 +221,9 @@ impl VirtualFileSystem for VirtualFileSystemImpl {
             let mut current_id = NodeId::root();
 
             for component in &components {
-                let child_ids = children
-                    .get(&current_id)
-                    .map(|r| r.clone())
-                    .unwrap_or_default();
-
-                let mut found = false;
-                for child_id in &child_ids {
-                    if let Ok(child) = metadata.get_node(child_id).await {
-                        if child.name == *component {
-                            current_id = child.id;
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-
-                if !found {
+                if let Some(child) = metadata.find_by_name(&current_id, component).await? {
+                    current_id = child.id;
+                } else {
                     return Err(AegisError::NodeNotFound(format!(
                         "path component '{}' not found in '{}'",
                         component, path
@@ -292,7 +237,6 @@ impl VirtualFileSystem for VirtualFileSystemImpl {
 
     fn exists(&self, path: &str) -> BoxFuture<'_, AegisResult<bool>> {
         let metadata = self.metadata.clone();
-        let children = self.children.clone();
         let path = path.to_string();
 
         Box::pin(async move {
@@ -309,23 +253,9 @@ impl VirtualFileSystem for VirtualFileSystemImpl {
             let mut current_id = NodeId::root();
 
             for component in &components {
-                let child_ids = children
-                    .get(&current_id)
-                    .map(|r| r.clone())
-                    .unwrap_or_default();
-
-                let mut found = false;
-                for child_id in &child_ids {
-                    if let Ok(child) = metadata.get_node(child_id).await {
-                        if child.name == *component {
-                            current_id = child.id;
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-
-                if !found {
+                if let Some(child) = metadata.find_by_name(&current_id, component).await? {
+                    current_id = child.id;
+                } else {
                     return Ok(false);
                 }
             }
@@ -337,15 +267,11 @@ impl VirtualFileSystem for VirtualFileSystemImpl {
 
 pub struct PathResolver {
     metadata: Arc<dyn MetadataIndex>,
-    children: Arc<DashMap<NodeId, Vec<NodeId>>>,
 }
 
 impl PathResolver {
-    pub fn new(
-        metadata: Arc<dyn MetadataIndex>,
-        children: Arc<DashMap<NodeId, Vec<NodeId>>>,
-    ) -> Self {
-        Self { metadata, children }
+    pub fn new(metadata: Arc<dyn MetadataIndex>) -> Self {
+        Self { metadata }
     }
 
     pub fn split_path(path: &str) -> Vec<String> {
@@ -371,24 +297,9 @@ impl PathResolver {
         let mut current_id = NodeId::root();
 
         for component in &components {
-            let child_ids = self
-                .children
-                .get(&current_id)
-                .map(|r| r.clone())
-                .unwrap_or_default();
-
-            let mut found = false;
-            for child_id in &child_ids {
-                if let Ok(child) = self.metadata.get_node(child_id).await {
-                    if child.name == *component {
-                        current_id = child.id;
-                        found = true;
-                        break;
-                    }
-                }
-            }
-
-            if !found {
+            if let Some(child) = self.metadata.find_by_name(&current_id, component).await? {
+                current_id = child.id;
+            } else {
                 return Err(AegisError::NodeNotFound(format!(
                     "path component '{}' not found in '{}'",
                     component, path
@@ -417,24 +328,9 @@ impl PathResolver {
                 continue;
             }
 
-            let child_ids = self
-                .children
-                .get(&current_id)
-                .map(|r| r.clone())
-                .unwrap_or_default();
-
-            let mut found = false;
-            for child_id in &child_ids {
-                if let Ok(child) = self.metadata.get_node(child_id).await {
-                    if child.name == *component {
-                        current_id = child.id;
-                        found = true;
-                        break;
-                    }
-                }
-            }
-
-            if !found {
+            if let Some(child) = self.metadata.find_by_name(&current_id, component).await? {
+                current_id = child.id;
+            } else {
                 return Err(AegisError::NodeNotFound(format!(
                     "relative path component '{}' not found",
                     component
@@ -448,15 +344,11 @@ impl PathResolver {
 
 pub struct NodeTreeWalker<'a> {
     metadata: &'a Arc<dyn MetadataIndex>,
-    children: &'a Arc<DashMap<NodeId, Vec<NodeId>>>,
 }
 
 impl<'a> NodeTreeWalker<'a> {
-    pub fn new(
-        metadata: &'a Arc<dyn MetadataIndex>,
-        children: &'a Arc<DashMap<NodeId, Vec<NodeId>>>,
-    ) -> Self {
-        Self { metadata, children }
+    pub fn new(metadata: &'a Arc<dyn MetadataIndex>) -> Self {
+        Self { metadata }
     }
 
     pub async fn walk<F>(&self, node_id: NodeId, mut callback: F) -> AegisResult<()>
@@ -473,14 +365,9 @@ impl<'a> NodeTreeWalker<'a> {
         let node = self.metadata.get_node(&node_id).await?;
         callback(&node)?;
 
-        let child_ids = self
-            .children
-            .get(&node_id)
-            .map(|r| r.clone())
-            .unwrap_or_default();
-
-        for child_id in child_ids {
-            Box::pin(self.walk_inner(child_id, callback)).await?;
+        let children = self.metadata.list_children(&node_id).await?;
+        for child in children {
+            Box::pin(self.walk_inner(child.id, callback)).await?;
         }
 
         Ok(())
@@ -490,15 +377,9 @@ impl<'a> NodeTreeWalker<'a> {
     where
         F: FnMut(&Node) -> AegisResult<()>,
     {
-        let child_ids = self
-            .children
-            .get(&parent_id)
-            .map(|r| r.clone())
-            .unwrap_or_default();
-
-        for child_id in child_ids {
-            let node = self.metadata.get_node(&child_id).await?;
-            callback(&node)?;
+        let children = self.metadata.list_children(&parent_id).await?;
+        for child in children {
+            callback(&child)?;
         }
 
         Ok(())
@@ -564,6 +445,7 @@ mod tests {
     use crate::core::traits::DedupIndex;
     use crate::dedup::MemoryDedupIndex;
     use crate::metadata::MemoryMetadataIndex;
+    use dashmap::DashMap;
     use std::sync::Arc;
 
     struct InMemoryChunkStorage {
@@ -1061,7 +943,7 @@ mod tests {
         create_file(&vfs, &a, "a2.txt").await;
         create_file(&vfs, &b, "b1.txt").await;
 
-        let walker = NodeTreeWalker::new(&vfs.metadata, &vfs.children);
+        let walker = NodeTreeWalker::new(&vfs.metadata);
         let mut visited = Vec::new();
 
         walker
@@ -1089,7 +971,7 @@ mod tests {
         create_file(&vfs, &root_id, "f2.txt").await;
         create_dir(&vfs, &root_id, "d1").await;
 
-        let walker = NodeTreeWalker::new(&vfs.metadata, &vfs.children);
+        let walker = NodeTreeWalker::new(&vfs.metadata);
         let mut visited = Vec::new();
 
         walker
@@ -1116,7 +998,7 @@ mod tests {
         let api = create_dir(&vfs, &docs, "api").await;
         let file_id = create_file(&vfs, &api, "reference.md").await;
 
-        let resolver = PathResolver::new(vfs.metadata.clone(), vfs.children.clone());
+        let resolver = PathResolver::new(vfs.metadata.clone());
 
         let resolved = resolver.resolve("/docs/api/reference.md").await.unwrap();
         assert_eq!(resolved, file_id);
@@ -1134,7 +1016,7 @@ mod tests {
         let docs = create_dir(&vfs, &root_id, "docs").await;
         let file_id = create_file(&vfs, &docs, "readme.md").await;
 
-        let resolver = PathResolver::new(vfs.metadata.clone(), vfs.children.clone());
+        let resolver = PathResolver::new(vfs.metadata.clone());
 
         let resolved = resolver.resolve_relative(docs, "readme.md").await.unwrap();
         assert_eq!(resolved, file_id);

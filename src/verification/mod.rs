@@ -373,6 +373,7 @@ mod tests {
     struct MockMetadataIndex {
         nodes: Mutex<HashMap<NodeId, Node>>,
         children: Mutex<HashMap<NodeId, Vec<NodeId>>>,
+        parents: Mutex<HashMap<NodeId, NodeId>>,
     }
 
     impl MockMetadataIndex {
@@ -380,6 +381,7 @@ mod tests {
             Self {
                 nodes: Mutex::new(HashMap::new()),
                 children: Mutex::new(HashMap::new()),
+                parents: Mutex::new(HashMap::new()),
             }
         }
 
@@ -394,6 +396,7 @@ mod tests {
                 .entry(parent)
                 .or_default()
                 .push(child);
+            self.parents.lock().unwrap().insert(child, parent);
         }
     }
 
@@ -411,9 +414,16 @@ mod tests {
 
         fn delete_node(&self, id: &NodeId) -> BoxFuture<'_, AegisResult<()>> {
             let id = *id;
-            self.nodes.lock().unwrap().remove(&id);
-            self.children.lock().unwrap().remove(&id);
-            Box::pin(async move { Ok(()) })
+            Box::pin(async move {
+                self.nodes.lock().unwrap().remove(&id);
+                if let Some(parent_id) = self.parents.lock().unwrap().remove(&id) {
+                    if let Some(children) = self.children.lock().unwrap().get_mut(&parent_id) {
+                        children.retain(|c| *c != id);
+                    }
+                }
+                self.children.lock().unwrap().remove(&id);
+                Ok(())
+            })
         }
 
         fn list_children(&self, parent_id: &NodeId) -> BoxFuture<'_, AegisResult<Vec<Node>>> {
@@ -450,6 +460,30 @@ mod tests {
         fn len(&self) -> BoxFuture<'_, AegisResult<u64>> {
             let len = self.nodes.lock().unwrap().len() as u64;
             Box::pin(async move { Ok(len) })
+        }
+
+        fn add_child(&self, parent: &NodeId, child: &NodeId) -> BoxFuture<'_, AegisResult<()>> {
+            let parent = *parent;
+            let child = *child;
+            self.add_child(parent, child);
+            Box::pin(async move { Ok(()) })
+        }
+
+        fn remove_child(&self, parent: &NodeId, child: &NodeId) -> BoxFuture<'_, AegisResult<()>> {
+            let parent = *parent;
+            let child = *child;
+            Box::pin(async move {
+                if let Some(children) = self.children.lock().unwrap().get_mut(&parent) {
+                    children.retain(|c| *c != child);
+                }
+                self.parents.lock().unwrap().remove(&child);
+                Ok(())
+            })
+        }
+
+        fn get_parent(&self, child_id: &NodeId) -> BoxFuture<'_, AegisResult<Option<NodeId>>> {
+            let child_id = *child_id;
+            Box::pin(async move { Ok(self.parents.lock().unwrap().get(&child_id).cloned()) })
         }
     }
 

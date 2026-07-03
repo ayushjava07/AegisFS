@@ -1,0 +1,30 @@
+[package]
+name = "aegisfs-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[dependencies]
+libfuzzer-sys = "0.4"
+aegisfs = { path = "..", features = ["zstd-compression", "lz4-compression", "aes-encryption", "chacha-encryption"] }
+
+# Prevent this from interfering with workspaces
+[workspace]
+
+[[bin]]
+name = "fuzz_chunking"
+path = "fuzz_targets/fuzz_chunking.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_serialization"
+path = "fuzz_targets/fuzz_serialization.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_crypto"
+path = "fuzz_targets/fuzz_crypto.rs"
+test = false
+doc = false

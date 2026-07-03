@@ -424,6 +424,19 @@ mod tests {
         fn len(&self) -> BoxFuture<'_, AegisResult<u64>> {
             Box::pin(async { Ok(0) })
         }
+        fn add_child(&self, _parent: &NodeId, _child: &NodeId) -> BoxFuture<'_, AegisResult<()>> {
+            Box::pin(async { Ok(()) })
+        }
+        fn remove_child(
+            &self,
+            _parent: &NodeId,
+            _child: &NodeId,
+        ) -> BoxFuture<'_, AegisResult<()>> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_parent(&self, _child_id: &NodeId) -> BoxFuture<'_, AegisResult<Option<NodeId>>> {
+            Box::pin(async { Ok(None) })
+        }
     }
 
     fn make_manager() -> RecoveryManagerImpl {
