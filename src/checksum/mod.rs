@@ -7,7 +7,9 @@ pub use stream::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Cursor;
+    use crate::core::id::HashValue;
+    use crate::core::traits::Hasher;
+    use std::io::{Cursor, Read, Write};
     use std::str::FromStr;
 
     const SHA256_EMPTY: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
