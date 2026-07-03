@@ -4,134 +4,156 @@
 [![Rust](https://img.shields.io/badge/rust-1.82%2B-blue)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](https://github.com/aegisfs/aegisfs#license)
 
-AegisFS is a high-performance, secure, deduplicating virtual filesystem and archive storage engine built in Rust. It is designed for robust data backups, versioned snapshots, and encrypted/compressed cold-storage archives.
+A high-performance, deduplicating, encrypted virtual filesystem and archive storage engine built in Rust. Designed for robust data backups, versioned snapshots, and compressed cold-storage archives.
 
-## Key Features
+## Features
 
-- **Content-Defined Deduplication (CDC)**: Utilizes Rabin Fingerprinting and Content-Defined Chunking to maximize storage efficiency.
-- **Pluggable Compression & Encryption**: Pluggable storage decorators supporting AES-256-GCM, ChaCha20-Poly1305 encryption, and Zstd / Lz4 compression.
-- **Hierarchical VFS & Directory Metadata Tracking**: In-memory metadata index tracking parent-child relationships and node permissions.
-- **Snapshot Management & Differentials**: Versioned snapshot creation, listing, restoration, and flat differential comparison.
-- **Telemetry & Metrics**: Built-in Prometheus metrics and detailed operations tracing.
-- **Robust Background Task Scheduling & Recovery**: Auto-recovery WAL journaling and garbage collection tasks.
-
----
+- **Content-Defined Deduplication** — Rabin fingerprinting + CDC to maximize storage efficiency.
+- **Pluggable Compression & Encryption** — AES-256-GCM, ChaCha20-Poly1305 encryption; Zstd, LZ4 compression.
+- **Hierarchical VFS** — Directory tree with parent-child metadata, permissions, path resolution.
+- **Snapshot Management** — Versioned, read-only incremental snapshots with differential comparison.
+- **Integrity Verification** — Full-scan chunk verification, manifest and tree consistency checks.
+- **Async I/O** — Tokio-based async read/write streams, buffered and piped I/O.
+- **Recovery & WAL** — Write-ahead journal for crash recovery and state reconstruction.
+- **Background Tasks** — Scheduler, garbage collection, replication, throttled operations.
+- **Metrics & Telemetry** — Prometheus metrics, structured tracing, event bus.
+- **5 fuzz targets, 5 Criterion benchmarks, 556+ tests** — CI with clippy + fmt.
 
 ## Architecture
 
-```mermaid
-graph TD
-    Client[Application Client / CLI] --> AM[Archive Manager]
-    AM --> VFS[Virtual File System VFS]
-    AM --> SM[Snapshot Manager]
-    AM --> IM[Integrity Verifier]
-    
-    VFS --> DE[Deduplication Engine]
-    VFS --> MI[Metadata Index]
-    
-    DE --> CStorage[Decorated Chunk Storage]
-    
-    subgraph "Storage Decorators (Encryption & Compression)"
-        CStorage --> AES[AES-256-GCM]
-        CStorage --> ChaCha[ChaCha20-Poly1305]
-        CStorage --> Zstd[Zstd Compression]
-        CStorage --> Lz4[Lz4 Compression]
-    end
-    
-    CStorage --> Disk[Disk / Memory Backend]
+```
+                   ┌──────────────────────┐
+                   │   Archive Manager     │
+                   └───┬────┬──────┬───────┘
+                       │    │      │
+              ┌────────┘    │      └────────┐
+              ▼             ▼                ▼
+     ┌──────────────┐ ┌──────────┐ ┌────────────────┐
+     │ Virtual FS   │ │ Snapshot │ │ Integrity      │
+     │ (filesystem/)│ │ Manager  │ │ Verifier       │
+     └──────┬───────┘ │(snapshot/)│ │(verification/) │
+            │         └──────────┘ └────────────────┘
+            ▼
+     ┌──────────────┐ ┌──────────┐
+     │ Dedup Engine │ │ Metadata │
+     │ (dedup/      │ │ Index    │
+     │  chunking/)  │ │(metadata/)│
+     └──────┬───────┘ └──────────┘
+            ▼
+     ┌──────────────────────────────────┐
+     │  Decorated Chunk Storage         │
+     │  (Encryption → Compression →     │
+     │   Disk/Memory Backend)           │
+     └──────────────────────────────────┘
 ```
 
-### Subsystems Overview
-1. **Archive Manager (`src/archive`)**: The entrypoint module. Manages the lifecycle of multiple virtual archives, instantiating their respective filesystems, snapshots, and encryption systems.
-2. **Virtual Filesystem (`src/filesystem`)**: Exposes file/directory manipulation APIs (`create_node`, `write_node`, `read_file`, `resolve_path`).
-3. **Deduplication Engine (`src/dedup`, `src/chunking`)**: Splits data streams into chunks using either fixed-size chunking or FastCDC-based content-defined chunking.
-4. **Metadata Index (`src/metadata`)**: An authoritative index keeping track of directory tree layout and node properties.
-5. **Snapshot Manager (`src/snapshot`)**: Handles creation of incremental read-only restore points and calculates differentials.
-6. **Recovery & WAL (`src/recovery`)**: Logs operations in a Write-Ahead Log to allow reconstruction of consistent state after crash events.
+### Component Layers
 
----
+| Layer | Crate Module | Responsibility |
+|---|---|---|
+| **Public API** | `api/` | `AegisFs` facade, builder pattern |
+| **Archive** | `archive/` | Archive lifecycle, manifest management |
+| **Filesystem** | `filesystem/` | File/dir CRUD, path resolution, iterators |
+| **Snapshot** | `snapshot/` | Incremental snapshots, differentials |
+| **Deduplication** | `dedup/`, `chunking/` | CDC + fixed chunking, hash index |
+| **Metadata** | `metadata/` | In-memory tree index, query, search |
+| **Compression** | `compression/` | Zstd, LZ4, no-op providers |
+| **Encryption** | `crypto/` | AES-256-GCM, ChaCha20-Poly1305, key derivation |
+| **Verification** | `verification/` | Full-scan integrity, manifest/tree verification |
+| **Serialization** | `serialization/` | Binary (bincode), JSON, format detection |
+| **Network** | `network/` | TCP transport, connection pool, framing |
+| **RPC** | `rpc/` | Request/response protocol, handler registry |
+| **Auth** | `auth/` | Token-based authentication, role access control |
+| **Events** | `events/` | Async event bus, pub/sub |
+| **Scheduler** | `scheduler/` | Background task orchestration, GC |
+| **Journal** | `journal/` | WAL write-ahead logging, replay |
+| **Recovery** | `recovery/` | Crash recovery, state reconstruction |
+| **Replication** | `replication/` | Cross-endpoint archive replication |
+| **Config** | `config/` | Builder-based configuration, sub-configs |
+| **Allocator** | `allocator/` | Memory pool, slab allocator |
+| **Cache** | `cache/` | LRU, two-tier (async+sync) caching |
+| **Throttle** | `throttle/` | Token-bucket rate limiting |
+| **Policy** | `policy/` | Retention, GC eligibility policies |
+| **Metrics** | `metrics/` | Prometheus counters, histograms |
+| **Telemetry** | `telemetry/` | OpenTelemetry-style tracing spans |
+| **Watch** | `watch/` | Filesystem watcher (poll-based) |
+| **Plugin** | `plugin/` | Dynamic plugin registry, lifecycle |
+| **Sync** | `sync/` | Sync engine, conflict detection |
+| **Async I/O** | `async_io/` | Duplex streams, buffered reader/writer |
+| **Health** | `health/` | Health check endpoints |
+| **GC** | `gc/` | Garbage collection sweeps |
+| **Lease** | `lease/` | Distributed lease management |
+| **Limits** | `limits/` | Resource quotas |
+| **Scope** | `scope/` | Scoped operations |
+| **Trace** | `trace/` | Distributed trace propagation |
+| **Progress** | `progress/` | Operation progress reporting |
+| **Diagnostics** | `diagnostics/` | System diagnostics |
+| **Migration** | `migration/` | Data format migration |
+| **Version** | `version/` | Version info |
+| **Checksum** | `checksum/` | SHA-256, BLAKE3, xxHash3, Combined hashers |
+| **Core** | `core/` | Types, traits, error types, IDs |
 
-## Build & Installation
+## Build
 
-### Prerequisites
-- **Rust**: AegisFS requires Rust version `1.82.0` or higher.
-- **Clang/LLVM** (optional, required only for fuzzing): To run LibFuzzer targets.
-
-### Compilation
-Build AegisFS in release mode with all features (encryption, compression backends) enabled:
 ```bash
+# Default features (zstd + AES)
+cargo build --release
+
+# All features (LZ4 + ChaCha20)
 cargo build --release --all-features
 ```
 
----
+### Prerequisites
+- Rust 1.82+ (see `rust-toolchain.toml`)
+- Clang/LLVM (optional, for fuzzing)
 
-## Test & Validation Suite
+## Test
 
-AegisFS includes a comprehensive suite of unit tests, integration tests, benchmarks, and fuzzing targets.
-
-### 1. Running Unit & Integration Tests
-To run all unit tests and integration tests:
 ```bash
+# Unit + integration + property tests
 cargo test --all-features
+
+# Clippy (zero warnings)
+cargo clippy --all-features -- -D warnings
+
+# Formatting check
+cargo fmt --check
 ```
 
-### 2. Running Benchmarks
-We use `criterion` to benchmark the hot paths. Benchmarks include:
-- **chunking**: Fixed-size and CDC chunking throughput.
-- **dedup**: Dedup index insert and lookup performance.
-- **checksum**: SHA-256, BLAKE3, xxHash3, and Combined hasher throughput.
-- **serialization**: Binary and JSON serialize/deserialize throughput.
-- **cache**: LRU cache insert, lookup, and eviction performance.
+**556 tests** — 537 unit, 1 integration, 18 proptest.
 
-To compile and run all benchmarks:
+## Benchmarks
+
+5 Criterion benchmarks under `benches/`:
+
+| Benchmark | What it measures |
+|---|---|
+| `chunking` | Fixed-size & CDC throughput |
+| `dedup` | Index insert/lookup performance |
+| `checksum` | SHA-256, BLAKE3, xxHash3, Combined hasher throughput |
+| `serialization` | Binary & JSON serialize/deserialize |
+| `cache` | LRU insert, lookup, eviction |
+
 ```bash
 cargo bench
 ```
 
-To just check that the benchmarks compile without running them:
-```bash
-cargo bench --no-run
-```
+## Fuzzing
 
-### 3. Fuzzing
-Fuzz targets are configured using `cargo-fuzz` and `libfuzzer-sys` to ensure memory safety and robustness against corrupted inputs.
+5 `cargo-fuzz` targets under `fuzz/`:
 
-#### Installing cargo-fuzz
-```bash
-cargo install cargo-fuzz
-```
+| Target | Description |
+|---|---|
+| `fuzz_chunking` | CDC + fixed chunking with randomized bounds |
+| `fuzz_checksum` | Checksum computation invariants |
+| `fuzz_serialization` | Deserialization robustness |
+| `fuzz_dedup` | Ingest + duplicate detection |
+| `fuzz_compression` | Compress/decompress roundtrips |
 
-#### Executing Fuzz Targets
-Fuzz targets are located in the `fuzz/` directory:
-- **`chunking`**: Fuzzes chunking configurations (Fixed & CDC) with randomized bounds.
-- **`checksum`**: Fuzzes checksum computation (SHA-256, BLAKE3, xxHash3, Combined) invariants.
-- **`serialization`**: Fuzzes deserialization robustness against malicious byte inputs.
-- **`dedup`**: Fuzzes deduplication engine ingest and duplicate detection.
-- **`compression`**: Fuzzes compression/decompression roundtrips (Zstd, Noop).
-
-Run a specific target:
 ```bash
 cargo fuzz run fuzz_chunking
 ```
 
----
-
-## Final Release Checklist
-
-Before submitting a release, verify all components satisfy the production quality standards:
-
-| Phase | Description | Status |
-|---|---|---|
-| **Build** | Crate compiles successfully with zero errors across all feature gates. | ✓ Pass |
-| **Test** | All 556 unit, integration, and property tests pass. | ✓ Pass |
-| **Clippy** | No lints or warnings with `--all-features`. | ✓ Pass |
-| **Formatting** | Clean code formatting checked via `cargo fmt -- --check`. | ✓ Pass |
-| **Benchmarks** | Hot paths benchmarked and benchmark binaries compile successfully. | ✓ Pass |
-| **Fuzzing** | All three fuzzing targets defined and verified for compilation. | ✓ Pass |
-| **CI** | GitHub Actions workflows configured and verified for fresh clones. | ✓ Pass |
-| **Docs** | All public APIs and architectural models documented. | ✓ Pass |
-
----
-
 ## License
-AegisFS is dual-licensed under **MIT** OR **Apache-2.0** (your choice).
+
+Dual-licensed under **MIT** or **Apache-2.0** (your choice).
