@@ -16,31 +16,31 @@ tokio = { version = "1", features = ["rt", "macros"] }
 debug = 1
 
 [[bin]]
-name = "chunking"
+name = "chunking_fuzzer"
 path = "fuzz_targets/chunking_fuzzer.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "checksum"
+name = "checksum_fuzzer"
 path = "fuzz_targets/checksum_fuzzer.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "serialization"
+name = "serialization_fuzzer"
 path = "fuzz_targets/serialization_fuzzer.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "dedup"
+name = "dedup_fuzzer"
 path = "fuzz_targets/dedup_fuzzer.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "compression"
+name = "compression_fuzzer"
 path = "fuzz_targets/compression_fuzzer.rs"
 test = false
 doc = false
