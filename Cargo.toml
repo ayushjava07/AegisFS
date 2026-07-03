@@ -1,0 +1,95 @@
+[package]
+name = "aegisfs"
+version = "0.1.0"
+edition = "2021"
+description = "A virtual layered filesystem library supporting encrypted virtual archives, incremental snapshots, deduplicated chunks, integrity verification, and asynchronous file synchronization."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/aegisfs/aegisfs"
+keywords = ["filesystem", "storage", "deduplication", "snapshot", "encryption"]
+categories = ["filesystem", "compression", "cryptography"]
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bincode = "1"
+sha2 = "0.10"
+blake3 = "1"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+zstd = { version = "0.13", features = ["experimental"], optional = true }
+lz4_flex = { version = "0.11", optional = true }
+parking_lot = "0.12"
+lru = "0.12"
+dashmap = "6"
+bytes = { version = "1", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+prometheus = { version = "0.13", features = ["process"], optional = true }
+arc-swap = "1"
+crossbeam = "0.8"
+bitvec = "1"
+smallvec = "1"
+crc32fast = "1"
+aes-gcm = { version = "0.10", optional = true }
+chacha20poly1305 = { version = "0.10", optional = true }
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+ed25519-dalek = { version = "2", features = ["serde", "pem"] }
+rand = "0.8"
+hex = "0.4"
+base64 = "0.22"
+zeroize = { version = "1", features = ["zeroize_derive"] }
+curve25519-dalek = "4"
+typenum = "1"
+strum = { version = "0.26", features = ["derive"] }
+derivative = "2"
+nonempty = "0.10"
+futures = "0.3"
+pin-project = "1"
+delegate = "0.12"
+bitflags = { version = "2", features = ["serde"] }
+async-trait = "0.1"
+
+[dev-dependencies]
+tempfile = "3"
+proptest = "1"
+criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
+test-case = "3"
+pretty_assertions = "1"
+tokio-test = "0.4"
+rand_chacha = "0.3"
+tracing-test = "0.2"
+
+[features]
+default = ["zstd-compression", "aes-encryption"]
+zstd-compression = ["zstd"]
+lz4-compression = ["lz4_flex"]
+aes-encryption = ["aes-gcm"]
+chacha-encryption = ["chacha20poly1305"]
+fips = []
+
+[[bench]]
+name = "chunking"
+harness = false
+
+[[bench]]
+name = "dedup"
+harness = false
+
+[[bench]]
+name = "checksum"
+harness = false
+
+[[bench]]
+name = "serialization"
+harness = false
+
+[[bench]]
+name = "cache"
+harness = false
+
+[package.metadata.docs.rs]
+features = ["default"]
