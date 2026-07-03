@@ -1,6 +1,6 @@
 #!/bin/bash -eu
 
-cd "$SRC/aegisfs"
+cd "$SRC"
 
 # Build all fuzz targets in release mode with debug assertions
 cargo fuzz build -O --debug-assertions
