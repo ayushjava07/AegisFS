@@ -21,11 +21,6 @@ path = "fuzz_targets/chunking_fuzzer.rs"
 test = false
 doc = false
 
-[[bin]]
-name = "checksum_fuzzer"
-path = "fuzz_targets/checksum_fuzzer.rs"
-test = false
-doc = false
 
 [[bin]]
 name = "serialization_fuzzer"
