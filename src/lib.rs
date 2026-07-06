@@ -22,3 +22,6 @@ pub const PRODUCT_NAME: &str = "Runvane";
 
 /// Very short description used in `--version` output and logging.
 pub const PRODUCT_TAGLINE: &str = "durable distributed workflow orchestration";
+
+/// Core domain model: workflow definitions, runs, statuses, validation.
+pub mod domain;

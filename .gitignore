@@ -41,4 +41,4 @@ Thumbs.db
 **/proptest-regressions/
 
 # local scratch
-scratch/
+scratch/state/

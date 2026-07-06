@@ -58,6 +58,7 @@ delegate = "0.12"
 bitflags = { version = "2", features = ["serde"] }
 strum = { version = "0.26", features = ["derive"] }
 zeroize = "1"
+url = "2"
 
 [dev-dependencies]
 tempfile = "3"
