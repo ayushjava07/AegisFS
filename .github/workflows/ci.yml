@@ -9,6 +9,8 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# Every step here is mirrored by `scripts/ci.sh` so the same checks can be
+# run locally; nothing in the repository depends on the CI provider running.
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,27 +22,25 @@ jobs:
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
       - name: Build
-        run: cargo build --all-features
+        run: cargo build --workspace
       - name: Test
-        run: cargo test --all-features
+        run: cargo test --workspace
       - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --workspace -- -D warnings
       - name: Format
         run: cargo fmt --check
-      - name: Bench (no-run)
-        run: cargo bench --no-run
+      - name: Docs
+        run: cargo doc --no-deps --workspace
 
-  msrv:
+  bench:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
-      - name: Build
-        run: cargo build --all-features
-      - name: Test
-        run: cargo test --all-features
+      - name: Bench (no-run)
+        run: cargo bench --no-run
 
   fuzz:
     runs-on: ubuntu-latest
@@ -48,20 +48,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: nightly
+          components: llvm-tools-preview
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fuzz
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
       - name: Fuzz build
-        run: cargo fuzz build
-
-  docs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Enable caching
-        uses: Swatinem/rust-cache@v2
-      - name: Build docs
-        run: cargo doc --no-deps --all-features
+        run: cd fuzz && cargo fuzz build

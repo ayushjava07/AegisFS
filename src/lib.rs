@@ -1,49 +1,24 @@
-pub mod allocator;
-pub mod api;
-pub mod archive;
-pub mod async_io;
-pub mod auth;
-pub mod cache;
-pub mod checksum;
-pub mod chunking;
-pub mod compression;
-pub mod config;
-pub mod core;
-pub mod crypto;
-pub mod dedup;
-pub mod diagnostics;
-pub mod events;
-pub mod filesystem;
-pub mod gc;
-pub mod health;
-pub mod journal;
-pub mod lease;
-pub mod limits;
-pub mod manifest;
-pub mod metadata;
-pub mod metrics;
-pub mod migration;
-pub mod network;
-pub mod plugin;
-pub mod policy;
-pub mod progress;
-pub mod recovery;
-pub mod replication;
-pub mod rpc;
-pub mod scheduler;
-pub mod scope;
-pub mod serialization;
-pub mod snapshot;
-pub mod sync;
-pub mod telemetry;
-pub mod throttle;
-pub mod trace;
-pub mod utils;
-pub mod verification;
-pub mod version;
-pub mod watch;
+//! Runvane — a durable distributed workflow-orchestration platform.
+//!
+//! Runvane lets platform teams declare versioned workflow definitions, submit
+//! runs over HTTP or gRPC, and observe execution through the scheduler, the
+//! webhook/event dispatch layer, and a minimal read-only status dashboard.
+//! Task execution is delegated to pluggable handlers shipped as first-party
+//! plugins, keeping the core transport- and handler-agnostic.
+//!
+//! This crate is both the library consumed by the `runvane` binary and the
+//! home of the unit/integration test-suite for the whole platform.
 
-pub use core::error::*;
-pub use core::traits::MetadataQuery;
-pub use core::traits::*;
-pub use core::types::*;
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+#![warn(rust_2018_idioms)]
+
+/// Version stamped at build time; kept in one place so the CLI, `/debug`
+/// endpoint and the dashboard show the same string.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Human-facing product name used in docs, headers and the dashboard title.
+pub const PRODUCT_NAME: &str = "Runvane";
+
+/// Very short description used in `--version` output and logging.
+pub const PRODUCT_TAGLINE: &str = "durable distributed workflow orchestration";

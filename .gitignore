@@ -1,11 +1,21 @@
 # Rust
 /target/
 **/*.rs.bk
+*.rs.bk
 Cargo.lock.back
 
 # cargo-fuzz
 fuzz/target/
 fuzz/Cargo.lock
+fuzz/artifacts/
+fuzz/corpus/
+
+# coverage / mutation / quality tooling
+coverage/
+cov/
+lcov.info
+mutants.out
+target-mutants/
 
 # IDE
 .idea/
@@ -25,6 +35,10 @@ Thumbs.db
 
 # Misc
 *.pyc
+*.log
 
 # Proptest regressions
 **/proptest-regressions/
+
+# local scratch
+scratch/
