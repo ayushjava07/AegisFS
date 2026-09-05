@@ -25,3 +25,12 @@ pub const PRODUCT_TAGLINE: &str = "durable distributed workflow orchestration";
 
 /// Core domain model: workflow definitions, runs, statuses, validation.
 pub mod domain;
+
+/// Deterministic time abstraction.
+pub mod clock;
+
+/// State-machine engine and run/task machines.
+pub mod state;
+
+/// Top-level error types.
+pub mod error;
