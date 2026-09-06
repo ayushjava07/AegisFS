@@ -199,6 +199,16 @@ impl Store for LruStore {
         self.inner.cancel_run(run_id, now_ms)
     }
 
+    fn renew_lease(
+        &self,
+        run_id: &RunId,
+        token: &crate::persistence::ClaimToken,
+        now_ms: i64,
+        extend_by_ms: i64,
+    ) -> Result<(), StorageError> {
+        self.inner.renew_lease(run_id, token, now_ms, extend_by_ms)
+    }
+
     fn recover_expired_leases(&self, now_ms: i64) -> Result<usize, StorageError> {
         self.inner.recover_expired_leases(now_ms)
     }

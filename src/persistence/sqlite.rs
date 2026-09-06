@@ -467,6 +467,27 @@ impl Store for SqliteStore {
         Ok(())
     }
 
+    fn renew_lease(
+        &self,
+        run_id: &RunId,
+        token: &ClaimToken,
+        now_ms: i64,
+        extend_by_ms: i64,
+    ) -> Result<(), StorageError> {
+        let conn = self.conn.blocking_lock();
+        let updated = conn
+            .execute(
+                "UPDATE queue_entries SET lease_until_ms = ?3
+                 WHERE run_id = ?1 AND token = ?2 AND lease_until_ms > ?4",
+                params![run_id.as_str(), token.0, now_ms + extend_by_ms, now_ms,],
+            )
+            .map_err(backend_err)?;
+        if updated == 0 {
+            return Err(StorageError::ClaimLost(format!("run {run_id}")));
+        }
+        Ok(())
+    }
+
     fn cancel_run(&self, run_id: &RunId, now_ms: i64) -> Result<bool, StorageError> {
         let mut conn = self.conn.blocking_lock();
         let tx = conn.transaction().map_err(backend_err)?;

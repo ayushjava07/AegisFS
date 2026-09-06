@@ -18,6 +18,7 @@ pub fn run_store_suite(store: &dyn Store) {
     queue_lifecycle(store);
     queue_claimed_entry_hides_from_scan(store);
     cancel_run_semantics(store);
+    renew_lease_semantics(store);
 }
 
 /// Cancellation transitions non-terminal runs, drops the queue entry, and is
@@ -274,4 +275,42 @@ fn queue_claimed_entry_hides_from_scan(store: &dyn Store) {
     assert_eq!(store.recover_expired_leases(2000).unwrap(), 1);
     let reclaimed = store.scan_ready(2000, 10).unwrap();
     assert_eq!(reclaimed.len(), 1);
+}
+
+fn renew_lease_semantics(store: &dyn Store) {
+    let run = fixtures::run("rn_renew1", "acme", "ship", RunStatus::Running, 100);
+    store.put_run(&run).unwrap();
+    store
+        .enqueue(QueueEntry {
+            run_id: run.id.clone(),
+            token: ClaimToken::empty(),
+            due_at_ms: 100,
+            lease_until_ms: None,
+            claimed_by: None,
+        })
+        .unwrap();
+
+    let token = ClaimToken::new();
+    store.claim(&run.id, &token, 100, 1_000).unwrap();
+
+    // Wrong token fails with ClaimLost.
+    let wrong = ClaimToken::new();
+    assert!(matches!(
+        store.renew_lease(&run.id, &wrong, 500, 1_000),
+        Err(StorageError::ClaimLost(_))
+    ));
+
+    // Right token extends lease.
+    assert!(store.renew_lease(&run.id, &token, 500, 2_000).is_ok());
+
+    // At 1500 (original expiry was 1100, new is 2500), lease is still held and not scan-ready.
+    let ready = store.scan_ready(1_500, 100).unwrap();
+    assert!(!ready.iter().any(|e| e.run_id == run.id));
+
+    // After renewed expiry at 3000, the entry is visible again.
+    let after_expiry = store.scan_ready(3_000, 100).unwrap();
+    assert!(after_expiry.iter().any(|e| e.run_id == run.id));
+
+    // Clean up via ack.
+    assert!(store.ack(&run.id, &token).is_ok());
 }

@@ -122,6 +122,16 @@ pub trait Store: Send + Sync {
     /// `scan_ready` again (used by maintenance and defect telemetry).
     fn failclaim(&self, run_id: &RunId, token: &ClaimToken) -> Result<(), StorageError>;
 
+    /// Extends the lease on an entry currently held by `token` to `now_ms + extend_by_ms`.
+    /// Fails with `ClaimLost` if the lease has expired or is held by another token.
+    fn renew_lease(
+        &self,
+        run_id: &RunId,
+        token: &ClaimToken,
+        now_ms: i64,
+        extend_by_ms: i64,
+    ) -> Result<(), StorageError>;
+
     /// Transitions a non-terminal run to `Cancelled` and removes its queue
     /// entry unconditionally (the operator-cancel path must not race a lease
     /// holder). Returns `true` when a transition happened, `false` when the

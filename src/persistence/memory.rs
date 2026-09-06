@@ -299,6 +299,27 @@ impl Store for MemoryStore {
         Ok(())
     }
 
+    fn renew_lease(
+        &self,
+        run_id: &RunId,
+        token: &ClaimToken,
+        now_ms: i64,
+        extend_by_ms: i64,
+    ) -> Result<(), StoreError> {
+        let mut guard = self.inner.lock();
+        let entry = guard
+            .queue
+            .get(run_id)
+            .ok_or_else(|| StoreError::NotFound(format!("queue entry {run_id}")))?;
+        if entry.token != *token || !entry.is_leased(now_ms) {
+            return Err(StoreError::ClaimLost(format!("run {run_id}")));
+        }
+        let mut new_entry = entry.clone();
+        new_entry.lease_until_ms = Some(now_ms + extend_by_ms);
+        guard.queue.insert(run_id.clone(), new_entry);
+        Ok(())
+    }
+
     fn cancel_run(&self, run_id: &RunId, now_ms: i64) -> Result<bool, StoreError> {
         let mut guard = self.inner.lock();
         let mut run = guard
