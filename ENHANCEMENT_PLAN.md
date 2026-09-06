@@ -124,4 +124,5 @@ Every commit authored from Phase 2 onward adheres strictly to:
 
 f1a8f47 | phase 2 | gate: PASS | feat(scheduler): support cooperative in-flight task cancellation and token signalling
 839c1f0 | phase 2 | gate: PASS | feat(persistence): implement lease renewal primitive across memory and sqlite backends
+b766915 | phase 2 | gate: PASS | feat(scheduler): heartbeat and renew claim leases across multi-task execution
 
