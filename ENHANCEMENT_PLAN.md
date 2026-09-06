@@ -181,3 +181,4 @@ b1fe75d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 9d75cf5 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-031 for HttpSink descriptor reuse
 783681f | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-032 for retry attempt bounds
 295a133 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-033 for in-memory retention cleanup
+8e4a2f1 | phase 8 | gate: PASS | docs: update benchmark notes and README for 33 packaged defect tasks
