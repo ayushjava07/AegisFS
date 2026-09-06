@@ -1,0 +1,14 @@
+diff --git a/src/api/grpc.rs b/src/api/grpc.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/api/grpc.rs
++++ b/src/api/grpc.rs
+@@ -750,6 +750,14 @@ mod tests {
++    #[test]
++    // [P2P] RV-021 witness (semantic equality on tags round-trip across key ordering)
++    fn tags_round_trip_preserves_semantic_equality() {
++        let raw_a = br#"{"env":"prod","cluster":"us-east"}"#;
++        let raw_b = br#"{"cluster":"us-east","env":"prod"}"#;
++        let tags_a = parse_tags("tags", raw_a).unwrap();
++        let tags_b = parse_tags("tags", raw_b).unwrap();
++        assert_eq!(tags_a, tags_b);
++    }

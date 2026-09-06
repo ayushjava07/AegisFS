@@ -1,0 +1,9 @@
+diff --git a/src/api/grpc.rs b/src/api/grpc.rs
+index 8e4b2d1..7a6c9e0 100644
+--- a/src/api/grpc.rs
++++ b/src/api/grpc.rs
+@@ -118,3 +118,3 @@ fn parse_tags(field: &str, bytes: &[u8]) -> Result<BTreeMap<String, String>, Status> {
+     }
+-    serde_json::from_slice(bytes)
++    serde_json::from_slice::<std::collections::HashMap<String, String>>(bytes).map(|m| m.into_iter().collect())
+         .map_err(|e| Status::invalid_argument(format!("{field} is not an object of strings: {e}")))
