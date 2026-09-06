@@ -185,3 +185,4 @@ b1fe75d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 3d1f08c | phase 2 | gate: PASS | feat(engine): implement workflow static simulation and dry-run analysis engine
 7eb0f52 | phase 3 | gate: PASS | feat(cli): add dry-run subcommand for static workflow simulation
 644d749 | phase 4 | gate: PASS | feat(storage): implement artifact garbage collection and retention daemon
+65424c3 | phase 5 | gate: PASS | feat(dashboard): expand status dashboard with SVG execution timeline and storage gauges
