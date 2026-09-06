@@ -41,7 +41,7 @@ internal-bench/tasks/RV-XXX/
 
 ## 3. Defect Taxonomy & Task Catalog
 
-A total of 28 independent defect tasks are packaged:
+A total of 33 independent defect tasks are packaged:
 
 | Task ID | Category | Subsystem | Title |
 |:---|:---|:---|:---|
@@ -73,6 +73,11 @@ A total of 28 independent defect tasks are packaged:
 | **RV-026** | `config` | config | Reject Negative Worker Count in Environment Overrides |
 | **RV-027** | `config` | config | Reject Unknown Fields and Subsections in TOML Config |
 | **RV-028** | `validation` | api / domain | Enforce `MAX_RUN_INPUT_BYTES` Size Ceiling on Submits |
+| **RV-029** | `validation` | api (gRPC) | Enforce 512 Character Description Clamp in gRPC Converter |
+| **RV-030** | `validation` | domain | Reject Dangling Unknown Task References in depends_on |
+| **RV-031** | `leak` | events | Connection Pooling and Descriptor Bounds in HttpSink |
+| **RV-032** | `leak` | retry | Cap Retained Retry History for Long-Flapping Runs |
+| **RV-033** | `leak` | persistence | Purge Terminal Runs Exceeding Retention Window |
 
 ---
 

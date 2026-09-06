@@ -92,7 +92,7 @@ Runvane includes an 8-category test suite:
 
 This repository includes benchmark evaluation tasks structured under `internal-bench/`:
 - `internal-bench/defects.yaml`: Complete defect catalog with root causes, mechanisms, and verification commands.
-- `internal-bench/tasks/RV-001` through `RV-028`: Sand-style benchmark task bundles containing:
+- `internal-bench/tasks/RV-001` through `RV-033`: Sand-style benchmark task bundles containing:
   - `instructions.md`: Operator task description and expected behavior.
   - `task.yaml`: Metadata, category, subsystem, and target test command.
   - `defect.patch`: Cleanly reversible defect injection patch.
