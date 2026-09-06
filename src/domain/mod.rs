@@ -28,7 +28,7 @@ pub mod workflow;
 /// convenience. Prefer importing from `runvane::domain::*` in crate code.
 pub mod prelude {
     pub use super::error::DomainError;
-    pub use super::ids::{HandlerId, RunId, TaskRunId, TenantId, WorkflowId};
+    pub use super::ids::{AuditRecordId, HandlerId, RunId, TaskRunId, TenantId, WorkflowId};
     pub use super::retry_policy::{BackoffKind, JitterKind, RetryPolicy};
     pub use super::run::{Run, RunError, TaskRun};
     pub use super::status::{FailureKind, Priority, RunStatus, TaskStatus};

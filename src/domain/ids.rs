@@ -289,6 +289,15 @@ define_id!(
     "Typed identifier for a history-compaction summary row."
 );
 
+define_id!(
+    /// Identifier for an audit log record.
+    AuditRecordId,
+    "au_",
+    26,
+    "audit",
+    "Typed identifier for an audit log record."
+);
+
 /// Identifiers that carry a small, human-assigned lowercase string (tenant,
 /// definition name, plugin handler name) rather than a generated blob.
 ///
@@ -552,5 +561,13 @@ mod tests {
         // A malformed string fails to deserialize.
         let bad: Result<RunId, _> = serde_json::from_str("\"wf_bad\"");
         assert!(bad.is_err());
+    }
+
+    #[test]
+    fn audit_record_id_round_trips() {
+        let raw = generate_id("au_");
+        let parsed = AuditRecordId::parse(&raw).expect("valid audit id");
+        assert_eq!(parsed.as_str(), raw);
+        assert_eq!(parsed.to_string(), raw);
     }
 }

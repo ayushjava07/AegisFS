@@ -60,3 +60,6 @@ pub mod cli;
 /// Webhook/event subsystem: event model, hook dispatch, differential watcher.
 pub mod events;
 pub mod telemetry;
+
+/// Structured audit logging engine for security and operational events.
+pub mod audit;
