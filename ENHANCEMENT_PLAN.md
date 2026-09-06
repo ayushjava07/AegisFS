@@ -126,4 +126,5 @@ f1a8f47 | phase 2 | gate: PASS | feat(scheduler): support cooperative in-flight 
 839c1f0 | phase 2 | gate: PASS | feat(persistence): implement lease renewal primitive across memory and sqlite backends
 b766915 | phase 2 | gate: PASS | feat(scheduler): heartbeat and renew claim leases across multi-task execution
 86da055 | phase 2 | gate: PASS | feat(events): add durable webhook retry outbox and dead-letter queue (DLQ)
+ff8a926 | phase 2 | gate: PASS | feat(persistence): expand RunFilter with multi-status, tag keys, finished bounds, duration, and pagination offset
 
