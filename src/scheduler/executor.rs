@@ -248,12 +248,9 @@ impl<'a> RunExecutor<'a> {
 
                 // Heartbeat/renew the lease before beginning task execution.
                 if let Some(t) = token {
-                    let _ = self.store.renew_lease(
-                        &run.id,
-                        t,
-                        self.clock.now_ms(),
-                        lease_ms,
-                    );
+                    let _ = self
+                        .store
+                        .renew_lease(&run.id, t, self.clock.now_ms(), lease_ms);
                 }
 
                 // Load current record for attempt bookkeeping.

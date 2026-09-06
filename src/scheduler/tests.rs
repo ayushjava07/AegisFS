@@ -21,6 +21,7 @@ use crate::persistence::fixtures;
 use crate::persistence::memory::MemoryStore;
 use crate::persistence::{ClaimToken, QueueEntry, Store};
 use crate::plugins::handler::{Handler, HandlerError, HandlerResult, Registry, TaskContext};
+use crate::scheduler::executor::{RunAction, RunExecutor};
 use crate::scheduler::pool::{Dispatcher, WorkerPool};
 
 const ACK_DRAIN_READY_LABEL: &str = "queue entry ready";
@@ -619,4 +620,91 @@ fn in_flight_cancellation_aborts_run_cleanly() {
     assert_eq!(store.len_queue(), 0);
 
     dispatcher.into_pool().shutdown();
+}
+
+#[test]
+fn attempt_renews_lease_heartbeat_across_multi_task_execution() {
+    let store = Arc::new(MemoryStore::default());
+    let clock = Arc::new(ManualClock::at(10_000));
+    let registry = Arc::new(Registry::new());
+
+    // Task handler that advances the manual clock mid-execution.
+    struct ClockAdvancingHandler {
+        clock: Arc<ManualClock>,
+        advance_by_ms: i64,
+    }
+
+    impl Handler for ClockAdvancingHandler {
+        fn execute(&self, ctx: TaskContext<'_>) -> Result<HandlerResult, HandlerError> {
+            self.clock.advance(self.advance_by_ms);
+            Ok(HandlerResult {
+                output: json!({ "completed": ctx.task_name }),
+            })
+        }
+
+        fn description(&self) -> &'static str {
+            "advances clock during execution"
+        }
+    }
+
+    registry.register(
+        HandlerId::from_validated("testclockadv01".to_owned()),
+        Arc::new(ClockAdvancingHandler {
+            clock: clock.clone(),
+            advance_by_ms: 600,
+        }),
+    );
+    registry.register(
+        HandlerId::from_validated("testclockadv02".to_owned()),
+        Arc::new(ClockAdvancingHandler {
+            clock: clock.clone(),
+            advance_by_ms: 100,
+        }),
+    );
+
+    let def_name = "wf_heartbeat_test";
+    store
+        .put_workflow(def(
+            "wf_hb_01",
+            def_name,
+            vec![
+                task("step1", "testclockadv01", &[]),
+                task("step2", "testclockadv02", &["step1"]),
+            ],
+            RetryPolicy::fixed(1, 100),
+        ))
+        .unwrap();
+
+    let rid = RunId::from_validated("rn_heartbeat0001".to_owned());
+    store
+        .put_run(&fixtures::run(
+            "rn_heartbeat0001",
+            "tenant1",
+            def_name,
+            RunStatus::Running,
+            clock.value(),
+        ))
+        .unwrap();
+
+    // Enqueue and claim with short initial lease (500 ms, expires at 10_500).
+    let token = ClaimToken::new();
+    store
+        .enqueue(QueueEntry {
+            run_id: rid.clone(),
+            token: ClaimToken::empty(),
+            due_at_ms: clock.value(),
+            lease_until_ms: None,
+            claimed_by: None,
+        })
+        .unwrap();
+    store.claim(&rid, &token, clock.value(), 500).unwrap();
+
+    // Directly drive attempt_with_token with renewal lease of 2_000 ms.
+    let executor = RunExecutor::new(store.as_ref(), registry, clock.as_ref(), 42);
+    let outcome = executor
+        .attempt_with_token(rid.as_str(), Some(&token), 2_000)
+        .unwrap();
+
+    assert_eq!(outcome.run_status, RunStatus::Succeeded);
+    assert_eq!(outcome.action, RunAction::Ack);
 }
