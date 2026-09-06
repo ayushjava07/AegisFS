@@ -4,6 +4,7 @@
 //! * [`pick`] — ready-task selection and skipped-chain collapse.
 //! * [`pool`] — the scan/claim dispatcher and the threaded worker pool.
 
+pub mod cron;
 pub mod executor;
 pub mod pick;
 pub mod pool;
