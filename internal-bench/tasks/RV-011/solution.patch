@@ -1,0 +1,10 @@
+diff --git a/src/events/watcher.rs b/src/events/watcher.rs
+index 4a5b6c7..b1c2d3e 100644
+--- a/src/events/watcher.rs
++++ b/src/events/watcher.rs
+@@ -105,7 +105,7 @@ impl Watcher {
++        if self.emitted.contains(&(run.id.clone(), kind)) {
++            return;
++        }
++        self.emitted.insert((run.id.clone(), kind));
+-        // deduplication check removed

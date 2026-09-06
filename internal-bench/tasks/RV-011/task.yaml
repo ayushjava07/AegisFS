@@ -1,0 +1,8 @@
+id: RV-011
+category: concurrency
+subsystem: events
+title: "Event deduplication guard in watcher poll dispatch"
+description: "Concurrent status transitions cause a single terminal event to be observed twice, emitting duplicate webhook deliveries."
+base_commit: golden-baseline
+test_command: "cargo test --lib events::watcher::tests"
+status: ready
