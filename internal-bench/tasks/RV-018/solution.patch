@@ -1,0 +1,9 @@
+diff --git a/src/api/grpc.rs b/src/api/grpc.rs
+index 7a6c9e0..8e4b2d1 100644
+--- a/src/api/grpc.rs
++++ b/src/api/grpc.rs
+@@ -99,3 +99,3 @@ fn to_tonic_api(err: ApiError) -> Status {
+         404 => tonic::Code::NotFound,
+-        409 => tonic::Code::InvalidArgument,
++        409 => tonic::Code::FailedPrecondition,
+         502 => tonic::Code::Unavailable,

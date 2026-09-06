@@ -1,0 +1,12 @@
+diff --git a/src/api/grpc.rs b/src/api/grpc.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/api/grpc.rs
++++ b/src/api/grpc.rs
+@@ -750,6 +750,13 @@ mod tests {
++    #[test]
++    // [F2P] RV-018 witness (409 conflict maps to FailedPrecondition in tonic)
++    fn conflict_error_maps_to_failed_precondition() {
++        let err = ApiError::conflict("record already exists");
++        let status = to_tonic_api(err);
++        assert_eq!(status.code(), tonic::Code::FailedPrecondition);
++    }
