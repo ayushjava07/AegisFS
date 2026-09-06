@@ -136,4 +136,4 @@ b29aa64 | phase 2 | gate: PASS | feat(telemetry): add Prometheus text exposition
 8d8939b | phase 2 | gate: PASS | feat(scheduler): implement cron schedule parser and periodic trigger engine
 787dcfc | phase 2 | gate: PASS | feat(scheduler): implement multi-tenant concurrency throttling and leaky-bucket limiter
 9b52ece | phase 2 | gate: PASS | feat(storage): implement content-addressable artifact store with disk and memory backends
-
+eaa0658 | phase 3 | gate: PASS | feat(validation): enforce maximum JSON nesting depth to prevent recursion overflow
