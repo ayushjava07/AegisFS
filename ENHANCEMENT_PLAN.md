@@ -176,3 +176,4 @@ b1fe75d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 6135364 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-027 for unknown TOML fields
 77b8d06 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-028 for payload size bounds
 07648cb | phase 8 | gate: PASS | docs: synchronize README, architecture, changelog, and benchmark notes
+34edfd3 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-029 for gRPC description length clamp
