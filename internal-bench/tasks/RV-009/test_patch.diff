@@ -1,0 +1,10 @@
+diff --git a/src/scheduler/tests.rs b/src/scheduler/tests.rs
+index a1b2c3d..8f9a0b1 100644
+--- a/src/scheduler/tests.rs
++++ b/src/scheduler/tests.rs
+@@ -635,6 +635,12 @@ fn dispatcher_drops_lease_when_run_status_mutates_prior_to_dispatch() {
++    // [F2P] RV-009 witness (TOCTOU: mark_running rejects non-Queued runs and drops claim)
++    let stats = dispatcher.step();
++    assert_eq!(stats.submit_failed, 1);
++    assert_eq!(stats.claimed, 0);
+ }

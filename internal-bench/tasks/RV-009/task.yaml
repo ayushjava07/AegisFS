@@ -1,0 +1,8 @@
+id: RV-009
+category: concurrency
+subsystem: scheduler
+title: "Eliminate TOCTOU race in dispatcher step via atomic state check"
+description: "Between scan_ready and mark_running, concurrent status transitions leave the dispatcher holding claims on stale or already terminal runs."
+base_commit: golden-baseline
+test_command: "cargo test --lib scheduler::tests"
+status: ready
