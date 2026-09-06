@@ -139,3 +139,4 @@ b29aa64 | phase 2 | gate: PASS | feat(telemetry): add Prometheus text exposition
 eaa0658 | phase 3 | gate: PASS | feat(validation): enforce maximum JSON nesting depth to prevent recursion overflow
 67f434e | phase 3 | gate: PASS | feat(api): expand RunQuery with rich filters and strict query boundary validation
 13d334f | phase 3 | gate: PASS | feat(scheduler): install panic boundary on worker thread loop with lease release
+1ea0f7e | phase 3 | gate: PASS | feat(retry): harden backoff calculation against floating-point and integer overflow
