@@ -1,0 +1,11 @@
+diff --git a/src/persistence/lru_store.rs b/src/persistence/lru_store.rs
+index e4d5c6b..f1a2b3c 100644
+--- a/src/persistence/lru_store.rs
++++ b/src/persistence/lru_store.rs
+@@ -94,5 +94,6 @@ impl Store for LruStore {
+         let rec = self
+             .inner
+             .update_workflow_version(tenant, name, def, expected_version)?;
++        self.invalidate(tenant, name);
+         Ok(rec)
+     }

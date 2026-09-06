@@ -1,0 +1,8 @@
+id: RV-014
+category: stale_cache
+subsystem: persistence
+title: "Invalidate LRU cache entries on workflow definition version bump"
+description: "Workflow definition version bumps do not fully invalidate cached records across migration tooling, serving stale definitions."
+base_commit: golden-baseline
+test_command: "cargo test --lib persistence::lru_store::tests"
+status: ready

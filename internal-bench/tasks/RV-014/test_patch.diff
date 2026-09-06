@@ -1,0 +1,19 @@
+diff --git a/src/persistence/lru_store.rs b/src/persistence/lru_store.rs
+index a1b2c3d..e5f6a7b 100644
+--- a/src/persistence/lru_store.rs
++++ b/src/persistence/lru_store.rs
+@@ -280,6 +280,18 @@ mod tests {
++    #[test]
++    // [F2P] RV-014 witness (updating workflow version evicts stale cached record)
++    fn update_workflow_version_invalidates_cached_entry() {
++        let store = cached();
++        store.put_workflow(def("ship")).unwrap();
++        let initial = store.get_workflow("acme", "ship").unwrap();
++        assert_eq!(initial.def.version, 1);
++        let mut updated_def = def("ship");
++        updated_def.version = 2;
++        store.update_workflow_version("acme", "ship", updated_def, 1).unwrap();
++        let fetched = store.get_workflow("acme", "ship").unwrap();
++        assert_eq!(fetched.def.version, 2);
++    }
++
