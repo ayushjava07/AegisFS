@@ -3,6 +3,7 @@
 //! Sub-modules:
 //! * [`expr`] — dynamic expression evaluator and string template interpolation.
 
+pub mod dry_run;
 pub mod expr;
 
 #[cfg(test)]
