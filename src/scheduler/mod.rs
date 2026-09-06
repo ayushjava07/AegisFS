@@ -9,6 +9,7 @@ pub mod executor;
 pub mod pick;
 pub mod pool;
 pub mod reap;
+pub mod throttle;
 
 #[cfg(test)]
 mod tests;
