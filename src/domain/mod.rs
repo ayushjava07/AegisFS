@@ -22,6 +22,7 @@ pub mod retry_policy;
 pub mod run;
 pub mod status;
 pub mod validation;
+pub mod versioning;
 pub mod workflow;
 
 /// Re-export of the most frequently used domain surface for downstream
@@ -32,5 +33,6 @@ pub mod prelude {
     pub use super::retry_policy::{BackoffKind, JitterKind, RetryPolicy};
     pub use super::run::{Run, RunError, TaskRun};
     pub use super::status::{FailureKind, Priority, RunStatus, TaskStatus};
+    pub use super::versioning::{CanaryRoutingPolicy, CompatibilityReport, WorkflowAlias};
     pub use super::workflow::{HookSpec, Hooks, TaskSpec, WorkflowDef};
 }
