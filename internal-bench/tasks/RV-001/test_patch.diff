@@ -1,0 +1,19 @@
+diff --git a/src/api/grpc.rs b/src/api/grpc.rs
+index 8e41bf1..a1b2c3d 100644
+--- a/src/api/grpc.rs
++++ b/src/api/grpc.rs
+@@ -515,6 +515,18 @@ mod tests {
++    #[tokio::test]
++    // [F2P] RV-001 witness (gRPC ListRuns limit boundary enforcement)
++    async fn list_runs_rejects_negative_or_oversized_limit() {
++        let fixture = spawn_test_server().await;
++        let mut client = fixture.client;
++
++        let bad_neg = client.list_runs(ListRunsRequest { limit: -5, ..Default::default() }).await;
++        assert!(bad_neg.is_err());
++        assert_eq!(bad_neg.unwrap_err().code(), tonic::Code::InvalidArgument);
++
++        let bad_huge = client.list_runs(ListRunsRequest { limit: 501, ..Default::default() }).await;
++        assert!(bad_huge.is_err());
++        assert_eq!(bad_huge.unwrap_err().code(), tonic::Code::InvalidArgument);
++    }

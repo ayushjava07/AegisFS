@@ -1,0 +1,13 @@
+diff --git a/src/api/grpc.rs b/src/api/grpc.rs
+index 2b39f72..8e41bf1 100644
+--- a/src/api/grpc.rs
++++ b/src/api/grpc.rs
+@@ -282,7 +282,10 @@ impl GrpcServer {
+         let limit = if req.limit != 0 {
++            if req.limit < 0 || req.limit > 500 {
++                return Err(tonic::Status::invalid_argument("limit must be between 1 and 500"));
++            }
++            Some(req.limit as usize)
+         } else {
+             None
+         };

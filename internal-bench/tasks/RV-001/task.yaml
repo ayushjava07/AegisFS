@@ -1,0 +1,8 @@
+id: RV-001
+category: type_safety
+subsystem: api/grpc
+title: "Reject negative and zero limit values in gRPC ListRuns"
+description: "gRPC ListRunsRequest.limit is accepted raw without bounds checking, causing negative or zero limit requests to behave inconsistently with HTTP API."
+base_commit: golden-baseline
+test_command: "cargo test --lib api::grpc::tests"
+status: ready
