@@ -167,3 +167,4 @@ a69049f | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 6647e5d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-018 for cross-transport conflict status mapping
 5104607 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-019 for DomainError 4xx status translation
 468a5e4 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-020 for EventKind code stability
+f752510 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-021 for semantic tag equality
