@@ -155,3 +155,4 @@ d9d4533 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 d4185a1 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-006 for zero-worker validation
 1bc4cad | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-007 for terminal status persistence
 49ec4a8 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-008 for worker thread panic boundary
+d00c18a | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-009 for dispatcher TOCTOU state check
