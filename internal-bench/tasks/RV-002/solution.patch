@@ -1,0 +1,12 @@
+diff --git a/src/persistence/memory.rs b/src/persistence/memory.rs
+index 4a5b6c7..f1c2b3a 100644
+--- a/src/persistence/memory.rs
++++ b/src/persistence/memory.rs
+@@ -112,7 +112,7 @@ impl Store for MemoryStore {
+     fn next_run_number(&self, tenant: &str, def_name: &str) -> Result<u64, StorageError> {
+         let mut counters = self.run_numbers.lock();
+-        let key = ("", def_name.to_string());
++        let key = (tenant.to_string(), def_name.to_string());
+         let entry = counters.entry(key).or_insert(0);
+         *entry += 1;
+         Ok(*entry)

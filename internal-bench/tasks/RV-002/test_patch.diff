@@ -1,0 +1,12 @@
+diff --git a/src/persistence/store_tests.rs b/src/persistence/store_tests.rs
+index b3c4d5e..6f7a8b9 100644
+--- a/src/persistence/store_tests.rs
++++ b/src/persistence/store_tests.rs
+@@ -140,6 +140,14 @@ pub fn run_number_increments(store: &dyn Store) {
++    // [F2P] RV-002 witness (multi-tenant sequence isolation)
++    let a1 = store.next_run_number("tenantA", "common-job").unwrap();
++    let a2 = store.next_run_number("tenantA", "common-job").unwrap();
++    let b1 = store.next_run_number("tenantB", "common-job").unwrap();
++    assert_eq!(a1, 1);
++    assert_eq!(a2, 2);
++    assert_eq!(b1, 1, "tenant B must start counting from 1 regardless of tenant A");

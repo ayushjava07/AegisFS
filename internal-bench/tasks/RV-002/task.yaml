@@ -1,0 +1,8 @@
+id: RV-002
+category: type_safety
+subsystem: persistence
+title: "Multi-tenant run number isolation by (tenant, name)"
+description: "Run numbers collision occurs when two distinct tenants submit workflows with identical names because counters are keyed only by definition name."
+base_commit: golden-baseline
+test_command: "cargo test --lib persistence::tests::run_numbers_are_unique_per_tenant"
+status: ready
