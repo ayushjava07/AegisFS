@@ -214,6 +214,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-022 witness (retry magnitude stays sane at the u64/i64 edge).
     fn bad_multiplier_rejected() {
         for bad in [0.5, f64::NAN, f64::INFINITY] {
             let mut p = sample();
@@ -223,6 +224,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-016 witness (overflowing delays are rejected, not silently clamped).
     fn delay_over_ceiling_rejected() {
         let mut p = sample();
         p.max_delay_ms = MAX_BACKOFF_MS + 1;

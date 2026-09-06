@@ -65,6 +65,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-015 witness (retry-policy boundary; passes on broken and fixed).
     fn exhausted_attempts_give_up() {
         let p = RetryPolicy::fixed(1, 1_000);
         let clock = clock_at(5_000);

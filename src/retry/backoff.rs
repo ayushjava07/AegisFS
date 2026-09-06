@@ -102,6 +102,7 @@ mod tests {
     const SEED: u64 = 42;
 
     #[test]
+    // [P2P] RV-016 witness (deadline/backoff math stays bounded, no overflow).
     fn fixed_without_jitter_is_constant() {
         let p = RetryPolicy::fixed(5, 2_000);
         let mut b = Backoff::new(&p, SEED);
@@ -147,6 +148,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-015 witness (retry boundary: delays stay in bounds at the edges).
     fn full_jitter_stays_in_bounds() {
         let p = RetryPolicy::exponential(10, 1_000, 60_000);
         let mut b = Backoff::new(&p, SEED);

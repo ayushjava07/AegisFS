@@ -210,6 +210,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-030 witness (empty task graph stays rejected on broken and fixed).
     fn empty_tasks_rejected() {
         let mut def = base_def();
         def.tasks.clear();
@@ -217,6 +218,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-030 witness (duplicate/dangling names are rejected both ways).
     fn duplicate_task_names_rejected() {
         let mut def = base_def();
         let dup = def.tasks[0].clone();
@@ -228,6 +230,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-030 witness (graph cycle detection is stable across fixes).
     fn cycle_rejected() {
         let mut def = base_def();
         def.tasks.push(TaskSpec {

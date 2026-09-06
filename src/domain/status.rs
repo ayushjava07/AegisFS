@@ -215,6 +215,7 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
+    // [P2P] RV-020 witness (status names stay stable on the wire).
     fn run_status_serde_round_trips() {
         for status in RunStatus::VARIANTS {
             let json = serde_json::to_string(status).unwrap();

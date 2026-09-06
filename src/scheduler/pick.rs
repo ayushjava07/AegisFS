@@ -136,6 +136,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-003 witness (dependencies gate readiness on broken and fixed).
     fn depends_ready_only_after_all_deps() {
         let d = def(vec![
             ("left".into(), vec![]),
@@ -182,6 +183,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-032 witness (retry selection semantics hold in both states).
     fn failed_tasks_are_selected_for_retry() {
         let d = def(vec![("a".into(), vec![]), ("b".into(), vec!["a".into()])]);
         let s = states(&[("a", TaskStatus::Failed), ("b", TaskStatus::Succeeded)]);

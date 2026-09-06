@@ -243,6 +243,7 @@ mod tests {
     }
 
     #[test]
+    // [F2P] RV-029 witness (description must be clamped identically everywhere).
     fn description_length_capped() {
         assert!(sanitize_description(&"x".repeat(512)).is_ok());
         assert_eq!(

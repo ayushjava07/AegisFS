@@ -367,6 +367,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-011 witness (event filter matching holds in both states).
     fn event_filter_admits_code_or_status_name() {
         let def = def_with_hooks(Hooks {
             on_failure: vec![
@@ -397,6 +398,8 @@ mod tests {
     }
 
     #[test]
+    // [F2P] RV-011/020 witness (delivery ids must stay deterministic and
+    // stable); a refactor that renames event codes breaks the sha256 key.
     fn deliveries_carry_a_stable_dedup_id() {
         let ev = event(EventKind::RunFailed);
         let def = def_with_hooks(Hooks {
@@ -477,6 +480,7 @@ mod tests {
     /// A tiny one-shot HTTP/1.1 responder on a thread. Reads the request
     /// (through the declared Content-Length) and answers 204.
     #[test]
+    // [P2P] RV-031 witness (loopback delivery path works in both states).
     fn http_sink_posts_to_a_loopback_receiver() {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();

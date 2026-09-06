@@ -129,6 +129,8 @@ mod tests {
     }
 
     #[test]
+    // [F2P] RV-004 witness (every legal edge must keep validating); a
+    // transition-order regression breaks this exhaustive table.
     fn every_legal_edge_validates() {
         for (from, to) in legal_transitions() {
             assert!(

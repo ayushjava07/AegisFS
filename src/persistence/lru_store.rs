@@ -247,6 +247,8 @@ mod tests {
     }
 
     #[test]
+    // [F2P] RV-013/014 witness (a warm entry must not survive a write
+    // invalidation or a version bump).
     fn hits_serve_from_cache_and_evict_on_write() {
         let store = cached();
         store.put_workflow(def("ship")).unwrap();
@@ -267,6 +269,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-010 witness (LRU capacity semantics hold in both states).
     fn capacity_evicts_least_recently_used_key() {
         let store = LruStore::with_capacity(Arc::new(MemoryStore::new()), 2);
         for name in ["a", "b", "c"] {

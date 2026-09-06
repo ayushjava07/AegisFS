@@ -157,6 +157,7 @@ fn run_status(store: &dyn Store, run_id: &RunId) -> RunStatus {
 }
 
 #[test]
+// [P2P] RV-003 witness (a linear run still completes in both states).
 fn dispatch_linear_run_succeeds() {
     let store = Arc::new(MemoryStore::default());
     let clock = Arc::new(ManualClock::at(1_000_000));
@@ -340,6 +341,7 @@ fn flaky_run_cycles_through_retry_backoff_then_gives_up() {
 }
 
 #[test]
+// [P2P] RV-032 witness (retry/backoff accounting stays bounded both ways).
 fn flaky_run_retries_then_succeeds_within_budget() {
     let store = Arc::new(MemoryStore::default());
     let clock = Arc::new(ManualClock::at(4_000_000));
@@ -478,6 +480,7 @@ fn run_past_deadline_times_out_without_executing_tasks() {
 }
 
 #[test]
+// [P2P] RV-003 witness (failed deps still skip descendants in both states).
 fn failed_dependency_skips_descendants_and_run_fails() {
     let store = Arc::new(MemoryStore::default());
     let clock = Arc::new(ManualClock::at(5_000_000));

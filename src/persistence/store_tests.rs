@@ -22,6 +22,8 @@ pub fn run_store_suite(store: &dyn Store) {
 
 /// Cancellation transitions non-terminal runs, drops the queue entry, and is
 /// idempotent-neutral for terminal runs (returns `false`, never rewrites).
+// [P2P] RV-004/005 witness (cancel semantics must hold on both backends,
+// whether or not a claim/release defect is present).
 fn cancel_run_semantics(store: &dyn Store) {
     // Queued run cancels and disappears from the queue.
     let queued = fixtures::run("rn_c1", "acme", "ship", RunStatus::Queued, 100);

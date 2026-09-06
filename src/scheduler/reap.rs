@@ -43,6 +43,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-012 witness (lease expiry respects one clock source).
     fn expired_leases_are_recovered_only_after_the_window() {
         let store = MemoryStore::default();
         let clock = ManualClock::at(10_000);

@@ -188,6 +188,8 @@ mod tests {
     /// Concurrent claims of the same entry must not double-lease: exactly one
     /// worker wins and the others get `ClaimLost`.
     #[test]
+    // [F2P] RV-009 witness (one claim winner per entry; TOCTOU fixes must
+    // not weaken single-winner semantics).
     fn concurrent_claim_has_single_winner() {
         let store = Arc::new(new_memory());
         let n = 8;

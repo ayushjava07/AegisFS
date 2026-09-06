@@ -274,6 +274,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-011 witness (cancel events dispatch in both states).
     fn cancelled_runs_fire_the_cancel_slice() {
         let hooks = crate::domain::workflow::Hooks {
             on_cancel: vec![hook("http://h/cancel")],

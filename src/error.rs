@@ -156,6 +156,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-019/001 witness (error→status mapping holds in both states).
     fn id_errors_map_to_bad_request() {
         let e = RunvaneError::from(IdError::Malformed {
             kind: "run",

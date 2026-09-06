@@ -139,6 +139,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-030 witness (cycle detection holds on broken and fixed).
     fn cycle_is_detected() {
         let tasks = vec![spec("a", &["b"]), spec("b", &["a"])];
         assert_eq!(topo_order(&tasks).unwrap_err(), DomainError::CycleDetected);
@@ -152,6 +153,8 @@ mod tests {
     }
 
     #[test]
+    // [F2P] RV-030 witness (dangling depends_on must remain rejected; a fix
+    // that weakens reference resolution fails here).
     fn unknown_dependency_is_reported() {
         let tasks = vec![spec("a", &["ghost"])];
         assert_eq!(
