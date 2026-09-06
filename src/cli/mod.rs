@@ -52,6 +52,8 @@ pub enum Command {
     Workflows(WorkflowCommand),
     /// Inspect and mutate runs.
     Runs(RunCommand),
+    /// Statically simulate and analyze a workflow DAG without running it.
+    DryRun(DryRunArgs),
     /// Print product/build info.
     Version,
 }
@@ -179,6 +181,17 @@ pub struct CancelArgs {
     pub id: String,
 }
 
+/// `runvane dry-run` arguments.
+#[derive(Debug, Clone, Args)]
+pub struct DryRunArgs {
+    /// Path to the workflow JSON definition file.
+    #[arg(value_name = "SPEC.json")]
+    pub file: PathBuf,
+    /// Output format (`text` or `json`).
+    #[arg(short = 'f', long, default_value = "text")]
+    pub format: String,
+}
+
 impl Cli {
     /// Parses argv without exiting (testable) — the clap top-level entry for
     /// `main`.
@@ -199,6 +212,7 @@ pub async fn execute(cli: &Cli) -> Result<(), RunvaneError> {
         Command::Serve(args) => serve::serve(args).await,
         Command::Workflows(wf) => workflows(cli, wf).await,
         Command::Runs(runs) => run_commands(cli, runs).await,
+        Command::DryRun(args) => dry_run(args),
         Command::Version => {
             println!("{} {VERSION} — {PRODUCT_TAGLINE}", crate::PRODUCT_NAME);
             Ok(())
@@ -314,6 +328,73 @@ impl RetryFile {
             retryable_only: self.retryable_only.unwrap_or(false),
         }
     }
+}
+
+fn dry_run(args: &DryRunArgs) -> Result<(), RunvaneError> {
+    let raw = std::fs::read_to_string(&args.file)
+        .map_err(|e| RunvaneError::Config(format!("cannot read {}: {e}", args.file.display())))?;
+
+    let def: crate::domain::workflow::WorkflowDef = match serde_json::from_str(&raw) {
+        Ok(d) => d,
+        Err(_) => {
+            let spec = build_workflow_spec("preview", "dryrun", &raw)?;
+            let domain_spec = crate::api::payloads::WorkflowSpec {
+                tenant: spec.tenant,
+                name: spec.name,
+                description: if spec.description.is_empty() {
+                    None
+                } else {
+                    Some(spec.description)
+                },
+                tasks: spec
+                    .tasks
+                    .into_iter()
+                    .map(|t| {
+                        let input: serde_json::Value = if t.input_json.is_empty() {
+                            serde_json::json!({})
+                        } else {
+                            serde_json::from_slice(&t.input_json).unwrap_or(serde_json::json!({}))
+                        };
+                        crate::api::payloads::TaskSpecPayload {
+                            name: t.name,
+                            handler: t.handler,
+                            input: Some(input),
+                            depends_on: Some(t.depends_on),
+                            timeout_ms: if t.timeout_ms == 0 {
+                                None
+                            } else {
+                                Some(t.timeout_ms)
+                            },
+                            retry: None,
+                            meta: None,
+                        }
+                    })
+                    .collect(),
+                timeout_ms: if spec.timeout_ms == 0 {
+                    None
+                } else {
+                    Some(spec.timeout_ms)
+                },
+                retry: None,
+                default_priority: None,
+                hooks: None,
+                tags: None,
+            };
+            domain_spec.into_definition(0)?
+        }
+    };
+
+    let report = crate::engine::dry_run::simulate_workflow(&def)
+        .map_err(|e| RunvaneError::Server(format!("simulation failed: {e}")))?;
+
+    if args.format == "json" {
+        let json = serde_json::to_string_pretty(&report)
+            .map_err(|e| RunvaneError::Server(e.to_string()))?;
+        println!("{json}");
+    } else {
+        print!("{}", report.format_text());
+    }
+    Ok(())
 }
 
 /// Turns a JSON-file definition payload into the proto spec, sending free-form
@@ -639,7 +720,29 @@ mod tests {
         ])
         .unwrap();
         execute(&cli).await.unwrap();
-
         handle.abort();
+    }
+
+    #[tokio::test]
+    async fn dry_run_cli_simulation() {
+        let dir = tempfile::tempdir().unwrap();
+        let spec_file = dir.path().join("pipeline.json");
+        std::fs::write(
+            &spec_file,
+            serde_json::json!({
+                "tasks": [
+                    {"name": "fetch", "handler": "runvane.echo"},
+                    {"name": "process", "handler": "runvane.echo", "depends_on": ["fetch"]}
+                ]
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let cli = parse(&["dry-run", spec_file.to_str().unwrap()]).unwrap();
+        execute(&cli).await.unwrap();
+
+        let cli_json = parse(&["dry-run", "-f", "json", spec_file.to_str().unwrap()]).unwrap();
+        execute(&cli_json).await.unwrap();
     }
 }
