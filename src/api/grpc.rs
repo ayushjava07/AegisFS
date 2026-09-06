@@ -475,6 +475,7 @@ mod tests {
             boot_ms: 1_720_000_000_000,
             metrics: crate::telemetry::shared(),
             auth: crate::auth::AuthConfig::default(),
+            audit: Arc::new(crate::audit::memory::MemoryAuditLogger::default()),
         })
     }
 
@@ -756,6 +757,7 @@ mod tests {
                 Some(operator.to_owned()),
                 admin.map(str::to_owned),
             ),
+            audit: Arc::new(crate::audit::memory::MemoryAuditLogger::default()),
         })
     }
 

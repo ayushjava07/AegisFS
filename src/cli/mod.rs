@@ -571,6 +571,7 @@ mod tests {
             boot_ms: 1_720_000_000_000,
             metrics: crate::telemetry::shared(),
             auth: crate::auth::AuthConfig::default(),
+            audit: std::sync::Arc::new(crate::audit::memory::MemoryAuditLogger::default()),
         });
         let svc = crate::api::GrpcService::new(state).into_server();
         let handle = tokio::spawn(async move {

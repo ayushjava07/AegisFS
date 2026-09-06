@@ -44,6 +44,8 @@ pub struct AppState {
     pub metrics: Arc<crate::telemetry::Metrics>,
     /// API-token authentication and RBAC settings.
     pub auth: crate::auth::AuthConfig,
+    /// Structured audit logging engine.
+    pub audit: Arc<dyn crate::audit::AuditLogger>,
 }
 
 /// Builds the v1 router wired to `state`.
@@ -56,6 +58,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
 
     let operator = Router::new()
         .route("/v1/debug/metrics", get(metrics))
+        .route("/v1/audit", get(list_audit_events))
         .route("/v1/workflows", get(list_workflows).post(create_workflow))
         .route("/v1/workflows/:tenant/:name", get(get_workflow))
         .route("/v1/workflows/:tenant/:name/runs", post(submit_run))
@@ -226,6 +229,68 @@ struct Gauges {
     runs: usize,
 }
 
+/// Query string parameters accepted by `GET /v1/audit`.
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct AuditQuery {
+    /// Filter by tenant identifier.
+    pub tenant: Option<String>,
+    /// Filter by actor category (`system`, `user`, `token`, `anonymous`).
+    pub actor_kind: Option<String>,
+    /// Filter by action name (`run_submitted`, `workflow_created`, etc.).
+    pub action_name: Option<String>,
+    /// Filter by outcome status (`success`, `denied`, `error`).
+    pub status: Option<String>,
+    /// Filter by resource type (`workflow`, `run`, etc.).
+    pub resource_type: Option<String>,
+    /// Filter by specific resource ID.
+    pub resource_id: Option<String>,
+    /// Include events recorded on or after this timestamp (epoch ms).
+    pub since_ms: Option<i64>,
+    /// Include events recorded on or before this timestamp (epoch ms).
+    pub until_ms: Option<i64>,
+    /// Maximum number of records to return (capped at 1000).
+    pub limit: Option<usize>,
+    /// Number of records to skip for pagination.
+    pub offset: Option<usize>,
+}
+
+/// `GET /v1/audit` — query structured audit trail with filters and pagination.
+async fn list_audit_events(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<AuditQuery>,
+) -> Result<Json<Envelope<Vec<crate::audit::AuditRecord>>>, ApiError> {
+    let mut filter = crate::audit::AuditFilter::new();
+    if let Some(t) = query.tenant {
+        filter = filter.with_tenant(t);
+    }
+    if let Some(ak) = query.actor_kind {
+        filter = filter.with_actor_kind(ak);
+    }
+    if let Some(an) = query.action_name {
+        filter = filter.with_action_name(an);
+    }
+    if let Some(s) = query.status {
+        filter = filter.with_status(s);
+    }
+    if let Some(rt) = query.resource_type {
+        filter = filter.with_resource_type(rt);
+    }
+    if let Some(rid) = query.resource_id {
+        filter.resource_id = Some(rid);
+    }
+    filter.since_ms = query.since_ms;
+    filter.until_ms = query.until_ms;
+    let limit = query.limit.unwrap_or(50).clamp(1, 1000);
+    let offset = query.offset.unwrap_or(0);
+    filter = filter.with_pagination(limit, offset);
+
+    let records = state
+        .audit
+        .query(&filter)
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+    Ok(Json(Envelope::of(records)))
+}
+
 /// `POST /v1/workflows` — create a definition.
 async fn create_workflow(
     State(state): State<Arc<AppState>>,
@@ -239,6 +304,23 @@ async fn create_workflow(
         .metrics
         .workflow_creations_total
         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let record = crate::audit::AuditRecord::new(
+        crate::domain::ids::AuditRecordId::parse(&generate_id("au_")).unwrap(),
+        state.clock.now_ms(),
+        crate::audit::AuditActor::User {
+            username: "operator".into(),
+            role: "operator".into(),
+        },
+        crate::audit::AuditAction::WorkflowCreated {
+            name: stored.def.name.clone(),
+            version: stored.def.version,
+        },
+        crate::audit::AuditOutcome::Success,
+        "workflow",
+    )
+    .with_tenant(&stored.def.tenant)
+    .with_resource_id(&stored.def.name);
+    let _ = state.audit.record(record);
     Ok((StatusCode::CREATED, Json(Envelope::of(stored.def))))
 }
 
@@ -312,6 +394,23 @@ async fn submit_run(
         .metrics
         .run_submissions_total
         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let record = crate::audit::AuditRecord::new(
+        crate::domain::ids::AuditRecordId::parse(&generate_id("au_")).unwrap(),
+        now_ms,
+        crate::audit::AuditActor::User {
+            username: "operator".into(),
+            role: "operator".into(),
+        },
+        crate::audit::AuditAction::RunSubmitted {
+            run_id: run.id.to_string(),
+            workflow_name: run.def_name.clone(),
+        },
+        crate::audit::AuditOutcome::Success,
+        "run",
+    )
+    .with_tenant(&run.tenant)
+    .with_resource_id(run.id.as_str());
+    let _ = state.audit.record(record);
     Ok((StatusCode::ACCEPTED, Json(Envelope::of(run))))
 }
 
@@ -362,6 +461,23 @@ async fn cancel_run(
         .run_cancellations_total
         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let updated = state.store.get_run(&run_id).map_err(ApiError::from)?;
+    let record = crate::audit::AuditRecord::new(
+        crate::domain::ids::AuditRecordId::parse(&generate_id("au_")).unwrap(),
+        state.clock.now_ms(),
+        crate::audit::AuditActor::User {
+            username: "admin".into(),
+            role: "admin".into(),
+        },
+        crate::audit::AuditAction::RunCancelled {
+            run_id: run_id.to_string(),
+            reason: "cancelled via api".into(),
+        },
+        crate::audit::AuditOutcome::Success,
+        "run",
+    )
+    .with_tenant(&updated.tenant)
+    .with_resource_id(run_id.as_str());
+    let _ = state.audit.record(record);
     Ok(Json(Envelope::of(updated)))
 }
 
@@ -386,6 +502,7 @@ mod tests {
             boot_ms: 1_720_000_000_000,
             metrics: crate::telemetry::shared(),
             auth: crate::auth::AuthConfig::default(),
+            audit: Arc::new(crate::audit::memory::MemoryAuditLogger::default()),
         })
     }
 
@@ -401,6 +518,7 @@ mod tests {
                 operator_token: Some(zeroize::Zeroizing::new(operator.to_owned())),
                 admin_token: admin.map(|a| zeroize::Zeroizing::new(a.to_owned())),
             },
+            audit: Arc::new(crate::audit::memory::MemoryAuditLogger::default()),
         })
     }
 
@@ -1003,5 +1121,31 @@ mod tests {
         assert_eq!(res.status(), HttpStatus::OK);
         let res = authed(&app, "POST", "/v1/runs/rn_nope123/cancel", None).await;
         assert_eq!(res.status(), HttpStatus::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn audit_events_endpoint_lists_recorded_operations() {
+        let state = test_state();
+        let app = build_router(state);
+
+        // Create workflow
+        let req = json_body(&sample_spec());
+        let res = send(&app, req).await;
+        assert_eq!(res.status(), HttpStatus::CREATED);
+
+        // Query /v1/audit
+        let req = Request::builder()
+            .uri("/v1/audit")
+            .body(Body::empty())
+            .unwrap();
+        let res = send(&app, req).await;
+        assert_eq!(res.status(), HttpStatus::OK);
+        let body = axum::body::to_bytes(res.into_body(), 1024 * 64)
+            .await
+            .unwrap();
+        let envelope: Value = serde_json::from_slice(&body).unwrap();
+        let data = envelope["data"].as_array().expect("array of audit records");
+        assert_eq!(data.len(), 1);
+        assert_eq!(data[0]["resource_type"], "workflow");
     }
 }

@@ -58,6 +58,8 @@ pub struct Config {
     pub retention_ms: Option<u64>,
     /// Server default page size for run queries.
     pub default_list_limit: usize,
+    /// Optional file path for appending structured JSONL audit logs.
+    pub audit_log_path: Option<String>,
 }
 
 impl Default for Config {
@@ -75,6 +77,7 @@ impl Default for Config {
             reap_interval_ms: DEFAULT_REAP_MS,
             retention_ms: None,
             default_list_limit: DEFAULT_LIST_LIMIT,
+            audit_log_path: None,
         }
     }
 }
@@ -96,6 +99,7 @@ struct ConfigFile {
     reap_interval_ms: Option<i64>,
     retention_ms: Option<u64>,
     default_list_limit: Option<usize>,
+    audit_log_path: Option<String>,
     /// Unrecognized keys are collected here and turned into errors so a typo
     /// fails loudly instead of silently serving defaults.
     #[serde(flatten)]
@@ -164,6 +168,9 @@ impl Config {
         if let Some(v) = file.default_list_limit {
             cfg.default_list_limit = v;
         }
+        if let Some(v) = file.audit_log_path {
+            cfg.audit_log_path = Some(v);
+        }
         cfg.validate()?;
         Ok(cfg)
     }
@@ -231,6 +238,10 @@ impl Config {
         if let Some(v) = env.get("RUNVANE_RETENTION_MS").cloned() {
             self.retention_ms = Some(parse_required("RUNVANE_RETENTION_MS", &v)?);
             applied.insert("RUNVANE_RETENTION_MS", v);
+        }
+        if let Some(v) = env.get("RUNVANE_AUDIT_LOG_PATH").cloned() {
+            self.audit_log_path = Some(v.clone());
+            applied.insert("RUNVANE_AUDIT_LOG_PATH", v);
         }
         tracing::debug!(overrides = ?applied, "applied runvane environment overrides");
         self.validate()?;

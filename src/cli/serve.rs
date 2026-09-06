@@ -162,6 +162,14 @@ pub async fn serve(args: &ServeArgs) -> Result<(), RunvaneError> {
     let clock: Arc<dyn Clock> = Arc::new(SystemClock);
     let boot_ms = clock.now_ms();
 
+    let audit: Arc<dyn crate::audit::AuditLogger> =
+        match &cfg.audit_log_path {
+            Some(path) => Arc::new(crate::audit::file::FileAuditLogger::open(path).map_err(
+                |e| RunvaneError::Config(format!("cannot open audit log at {path}: {e}")),
+            )?),
+            None => Arc::new(crate::audit::memory::MemoryAuditLogger::default()),
+        };
+
     let state = Arc::new(AppState {
         store: Arc::clone(&store),
         registry: Arc::clone(&registry),
@@ -169,6 +177,7 @@ pub async fn serve(args: &ServeArgs) -> Result<(), RunvaneError> {
         boot_ms,
         metrics: crate::telemetry::shared(),
         auth: crate::auth::AuthConfig::from_config(cfg.auth_token.clone(), cfg.admin_token.clone()),
+        audit,
     });
     let router = build_router(Arc::clone(&state));
     let grpc_service = GrpcService::new(Arc::clone(&state)).into_server();
