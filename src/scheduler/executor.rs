@@ -132,8 +132,18 @@ impl<'a> RunExecutor<'a> {
         })
     }
 
-    /// Runs one attempt for `run_id` and persists every state change.
+    /// Runs one attempt for `run_id` without holding a specific lease token.
     pub fn attempt(&self, run_id: &str) -> Result<AttemptOutcome, ExecutorError> {
+        self.attempt_with_token(run_id, None, 60_000)
+    }
+
+    /// Runs one attempt for `run_id`, periodically heartbeating/renewing `token`'s lease.
+    pub fn attempt_with_token(
+        &self,
+        run_id: &str,
+        token: Option<&ClaimToken>,
+        lease_ms: i64,
+    ) -> Result<AttemptOutcome, ExecutorError> {
         let run_id_obj = self.run_id(run_id);
         let run = self
             .store
@@ -235,6 +245,16 @@ impl<'a> RunExecutor<'a> {
                     .iter()
                     .find(|t| t.name == name)
                     .expect("ready set derives from def tasks");
+
+                // Heartbeat/renew the lease before beginning task execution.
+                if let Some(t) = token {
+                    let _ = self.store.renew_lease(
+                        &run.id,
+                        t,
+                        self.clock.now_ms(),
+                        lease_ms,
+                    );
+                }
 
                 // Load current record for attempt bookkeeping.
                 let mut tr = self.load_task(&run.id, &name);

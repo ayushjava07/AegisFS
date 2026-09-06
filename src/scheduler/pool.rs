@@ -194,7 +194,11 @@ impl WorkerPool {
                             Err(_) => break, // channel closed and drained
                         }
                     };
-                    match executor.attempt(job.run_id.as_str()) {
+                    match executor.attempt_with_token(
+                        job.run_id.as_str(),
+                        Some(&job.token),
+                        60_000,
+                    ) {
                         Ok(outcome) => apply_action(store.as_ref(), &job, outcome.action),
                         Err(_) => {
                             // Return the lease so the run is not lost forever;
