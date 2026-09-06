@@ -1,0 +1,8 @@
+id: RV-003
+category: state_transition
+subsystem: scheduler
+title: "Clamp re-queue delay when task times out on final attempt"
+description: "When a run times out with expired deadline, un-clamped retry timing computes a past due_at_ms causing dispatcher hot-looping."
+base_commit: golden-baseline
+test_command: "cargo test --lib scheduler::tests::timed_out_run_parks_cleanly"
+status: ready

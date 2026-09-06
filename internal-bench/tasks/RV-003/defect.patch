@@ -1,0 +1,11 @@
+diff --git a/src/scheduler/executor.rs b/src/scheduler/executor.rs
+index d2e3f4a..1b2c3d4 100644
+--- a/src/scheduler/executor.rs
++++ b/src/scheduler/executor.rs
+@@ -145,7 +145,7 @@ impl<'a> RunExecutor<'a> {
+         if is_past_deadline {
+             run.status = RunStatus::TimedOut;
+             self.store.put_run(&run)?;
+-            return Ok(AttemptOutcome { action: RunAction::Ack, run_status: RunStatus::TimedOut });
++            return Ok(AttemptOutcome { action: RunAction::Release { release_at_ms: run.deadline_at_ms.unwrap_or(0) }, run_status: RunStatus::TimedOut });
+         }

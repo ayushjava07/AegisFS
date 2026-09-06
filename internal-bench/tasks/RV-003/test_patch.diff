@@ -1,0 +1,11 @@
+diff --git a/src/scheduler/tests.rs b/src/scheduler/tests.rs
+index a1b2c3d..e4f5a6b 100644
+--- a/src/scheduler/tests.rs
++++ b/src/scheduler/tests.rs
+@@ -480,6 +480,13 @@ fn run_past_deadline_times_out_without_executing_tasks() {
+     assert_eq!(run_status(store.as_ref(), &rid), RunStatus::TimedOut);
++
++    // [F2P] RV-003 witness (ensure queue entry was acknowledged and not left re-scheduled in the past)
++    let ready = store.scan_ready(clock.value() + 10_000, 10).unwrap();
++    assert!(ready.is_empty(), "timed out run must not remain in the ready queue");
+ }
