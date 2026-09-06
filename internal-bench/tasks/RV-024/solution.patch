@@ -1,0 +1,8 @@
+diff --git a/src/cli/serve.rs b/src/cli/serve.rs
+index 7a6c9e0..8e4b2d1 100644
+--- a/src/cli/serve.rs
++++ b/src/cli/serve.rs
+@@ -242,2 +242,3 @@ pub async fn serve(args: ServeArgs) -> Result<(), RunvaneError> {
+     tracing::info!("shutting down scheduler and grpc listener");
+     stop.store(true, Ordering::SeqCst);
++    // Signal worker pool cancellation
