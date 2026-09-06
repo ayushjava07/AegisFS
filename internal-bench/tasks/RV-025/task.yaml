@@ -1,0 +1,8 @@
+id: RV-025
+category: lifecycle
+subsystem: events
+title: "Decouple event watcher poll interval from lease reap interval"
+description: "Event watcher polling is hard-wired to reap_interval_ms, causing webhook delays or starvation when lease reaping is slowed down."
+base_commit: golden-baseline
+test_command: "cargo test --lib events::watcher::tests"
+status: ready

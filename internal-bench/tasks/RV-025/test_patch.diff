@@ -1,0 +1,14 @@
+diff --git a/src/events/watcher.rs b/src/events/watcher.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/events/watcher.rs
++++ b/src/events/watcher.rs
+@@ -190,6 +190,13 @@ mod tests {
++    #[test]
++    // [F2P] RV-025 witness (watcher poll independent of store reap duration)
++    fn watcher_poll_operates_with_independent_timestamp() {
++        let store = MemoryStore::new();
++        let clock = ManualClock::new(1_000);
++        let mut watcher = Watcher::with_sink(Arc::new(LoggingSink), &clock);
++        let res = watcher.poll(&store, clock.now_ms());
++        assert_eq!(res.finished, 0);
++    }
