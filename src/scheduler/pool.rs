@@ -194,12 +194,19 @@ impl WorkerPool {
                             Err(_) => break, // channel closed and drained
                         }
                     };
-                    match executor.attempt_with_token(job.run_id.as_str(), Some(&job.token), 60_000)
-                    {
-                        Ok(outcome) => apply_action(store.as_ref(), &job, outcome.action),
-                        Err(_) => {
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        executor.attempt_with_token(job.run_id.as_str(), Some(&job.token), 60_000)
+                    }));
+                    match result {
+                        Ok(Ok(outcome)) => apply_action(store.as_ref(), &job, outcome.action),
+                        Ok(Err(_)) => {
                             // Return the lease so the run is not lost forever;
                             // the failure is observable via logs/audit.
+                            let _ = store.release(&job.run_id, &job.token, clock.now_ms());
+                        }
+                        Err(_) => {
+                            // Panic caught: release lease to prevent orphaned lock,
+                            // allowing the worker thread to survive and continue serving.
                             let _ = store.release(&job.run_id, &job.token, clock.now_ms());
                         }
                     }

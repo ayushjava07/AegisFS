@@ -22,7 +22,7 @@ use crate::persistence::memory::MemoryStore;
 use crate::persistence::{ClaimToken, QueueEntry, Store};
 use crate::plugins::handler::{Handler, HandlerError, HandlerResult, Registry, TaskContext};
 use crate::scheduler::executor::{RunAction, RunExecutor};
-use crate::scheduler::pool::{Dispatcher, WorkerPool};
+use crate::scheduler::pool::{Dispatcher, Job, WorkerPool};
 
 const ACK_DRAIN_READY_LABEL: &str = "queue entry ready";
 
@@ -707,4 +707,139 @@ fn attempt_renews_lease_heartbeat_across_multi_task_execution() {
 
     assert_eq!(outcome.run_status, RunStatus::Succeeded);
     assert_eq!(outcome.action, RunAction::Ack);
+}
+
+struct PanickingHandler;
+
+impl Handler for PanickingHandler {
+    fn execute(&self, _ctx: TaskContext<'_>) -> Result<HandlerResult, HandlerError> {
+        panic!("simulated handler panic inside worker");
+    }
+
+    fn description(&self) -> &'static str {
+        "panicking test handler"
+    }
+}
+
+#[test]
+fn worker_pool_panic_boundary_recovers_and_serves_subsequent_jobs() {
+    let store = Arc::new(MemoryStore::default());
+    let clock = Arc::new(ManualClock::at(5_000_000));
+    let registry = Arc::new(Registry::new());
+
+    registry.register(
+        HandlerId::from_validated("panichandler01".to_owned()),
+        Arc::new(PanickingHandler),
+    );
+    registry.register(
+        HandlerId::from_validated("okhandler01".to_owned()),
+        Flaky::succeeds_after(0),
+    );
+
+    // Workflow 1: will panic
+    store
+        .put_workflow(def(
+            "wf_panic_01",
+            "panic_def",
+            vec![task("boom", "panichandler01", &[])],
+            RetryPolicy::fixed(1, 100),
+        ))
+        .unwrap();
+
+    // Workflow 2: will succeed
+    store
+        .put_workflow(def(
+            "wf_ok_01",
+            "ok_def",
+            vec![task("step1", "okhandler01", &[])],
+            RetryPolicy::fixed(1, 100),
+        ))
+        .unwrap();
+
+    let rid_panic = RunId::from_validated("rn_panic00000001".to_owned());
+    store
+        .put_run(&fixtures::run(
+            "rn_panic00000001",
+            "tenant1",
+            "panic_def",
+            RunStatus::Running,
+            clock.value(),
+        ))
+        .unwrap();
+
+    let rid_ok = RunId::from_validated("rn_ok00000000001".to_owned());
+    store
+        .put_run(&fixtures::run(
+            "rn_ok00000000001",
+            "tenant1",
+            "ok_def",
+            RunStatus::Running,
+            clock.value(),
+        ))
+        .unwrap();
+
+    let token_panic = ClaimToken::new();
+    store
+        .enqueue(QueueEntry {
+            run_id: rid_panic.clone(),
+            token: ClaimToken::empty(),
+            due_at_ms: clock.value(),
+            lease_until_ms: None,
+            claimed_by: None,
+        })
+        .unwrap();
+    store
+        .claim(&rid_panic, &token_panic, clock.value(), 60_000)
+        .unwrap();
+
+    let token_ok = ClaimToken::new();
+    store
+        .enqueue(QueueEntry {
+            run_id: rid_ok.clone(),
+            token: ClaimToken::empty(),
+            due_at_ms: clock.value(),
+            lease_until_ms: None,
+            claimed_by: None,
+        })
+        .unwrap();
+    store
+        .claim(&rid_ok, &token_ok, clock.value(), 60_000)
+        .unwrap();
+
+    // Spawn a 1-worker pool so both jobs are handled by the same thread
+    let pool = WorkerPool::spawn(1, registry, store.clone(), clock.clone(), 77);
+
+    // Submit the panicking job first
+    pool.submit(Job {
+        run_id: rid_panic.clone(),
+        token: token_panic.clone(),
+    })
+    .unwrap();
+
+    // Poll until panic lease is released (token cleared in queue)
+    poll(
+        || {
+            let ready = store.scan_ready(clock.value(), 10).unwrap();
+            ready
+                .iter()
+                .any(|e| e.run_id == rid_panic && e.token == ClaimToken::empty())
+        },
+        "panicking run lease to be released",
+    );
+
+    // Now submit the ok job to the SAME worker thread
+    pool.submit(Job {
+        run_id: rid_ok.clone(),
+        token: token_ok.clone(),
+    })
+    .unwrap();
+
+    // Verify the second job executes and succeeds on that surviving worker thread
+    poll(
+        || run_status(store.as_ref(), &rid_ok) == RunStatus::Succeeded,
+        "second run to succeed on surviving worker",
+    );
+    assert_eq!(run_status(store.as_ref(), &rid_ok), RunStatus::Succeeded);
+
+    pool.shutdown();
 }
