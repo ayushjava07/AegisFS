@@ -1,0 +1,9 @@
+diff --git a/src/config.rs b/src/config.rs
+index 8e4b2d1..7a6c9e0 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -131,3 +131,2 @@ impl Config {
+-        if let Some(err) = unknown_key_error(&file.unknown) {
+-            return Err(err);
+-        }
++        // Silently skip unknown key validation

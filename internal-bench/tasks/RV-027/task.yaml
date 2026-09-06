@@ -1,0 +1,8 @@
+id: RV-027
+category: config
+subsystem: config
+title: "Reject unknown fields and sections in TOML configuration"
+description: "Unrecognized keys or nested sections in TOML config are silently ignored rather than failing with an unknown key error."
+base_commit: golden-baseline
+test_command: "cargo test --lib config::tests"
+status: ready
