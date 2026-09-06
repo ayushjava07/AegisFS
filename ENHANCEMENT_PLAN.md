@@ -180,3 +180,4 @@ b1fe75d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 5f5c17b | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-030 for dangling DAG task references
 9d75cf5 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-031 for HttpSink descriptor reuse
 783681f | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-032 for retry attempt bounds
+295a133 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-033 for in-memory retention cleanup
