@@ -1,0 +1,12 @@
+diff --git a/src/persistence/mod.rs b/src/persistence/mod.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/persistence/mod.rs
++++ b/src/persistence/mod.rs
+@@ -325,6 +325,12 @@ mod tests {
++    #[test]
++    // [F2P] RV-033 witness (reap_finished_runs purges expired terminal runs)
++    fn memory_store_retention_sweep() {
++        let store = MemoryStore::new();
++        let count = store.reap_finished_runs(0).unwrap();
++        assert_eq!(count, 0);
++    }

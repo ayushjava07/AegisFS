@@ -1,0 +1,9 @@
+diff --git a/src/cli/serve.rs b/src/cli/serve.rs
+index 7a6c9e0..8e4b2d1 100644
+--- a/src/cli/serve.rs
++++ b/src/cli/serve.rs
+@@ -303,3 +303,3 @@ fn spawn_scheduler_thread(args: SchedulerArgs) -> Result<(), RunvaneError> {
+             let reaped = match retention_ms {
+-                Some(window) if false => {
++                Some(window) => {
+                     let cutoff = clock.now_ms() - window as i64;
