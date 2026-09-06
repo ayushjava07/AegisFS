@@ -162,3 +162,4 @@ e726229 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 4829f17 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-013 for LRU store tenant compound keys
 1441d86 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-014 for version-bump cache invalidation
 a69049f | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-015 for retry max_attempts sentinel
+0f28215 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-016 for saturating lease deadline
