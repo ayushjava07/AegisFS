@@ -133,4 +133,5 @@ d86f450 | phase 2 | gate: PASS | feat(plugins): implement runvane.http and runva
 b29aa64 | phase 2 | gate: PASS | feat(telemetry): add Prometheus text exposition and diagnostic health probes
 0067e04 | phase 2 | gate: PASS | feat(domain): add workflow versioning, canary routing, and compatibility analysis
 3e2b792 | phase 2 | gate: PASS | feat(engine): implement task expression evaluation and variable templating
+8d8939b | phase 2 | gate: PASS | feat(scheduler): implement cron schedule parser and periodic trigger engine
 
