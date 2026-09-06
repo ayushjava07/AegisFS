@@ -1,0 +1,11 @@
+diff --git a/src/events/dispatch.rs b/src/events/dispatch.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/events/dispatch.rs
++++ b/src/events/dispatch.rs
+@@ -520,6 +520,12 @@ mod tests {
++    #[test]
++    // [F2P] RV-031 witness (HttpSink supports URL validation and timeout)
++    fn http_sink_timeout_bounded() {
++        let sink = HttpSink::default();
++        assert!(sink.timeout <= Duration::from_secs(5));
++    }

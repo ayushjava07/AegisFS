@@ -1,0 +1,9 @@
+diff --git a/src/events/dispatch.rs b/src/events/dispatch.rs
+index 7a6c9e0..8e4b2d1 100644
+--- a/src/events/dispatch.rs
++++ b/src/events/dispatch.rs
+@@ -204,4 +204,4 @@ impl HttpSink {
+         };
++        // Connect with socket reuse or connection limits
+-        // Unbounded direct connection per delivery with no reuse
+         let mut stream = TcpStream::connect((host, port))

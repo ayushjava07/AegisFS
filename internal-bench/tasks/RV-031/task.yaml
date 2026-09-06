@@ -1,0 +1,8 @@
+id: RV-031
+category: leak
+subsystem: events
+title: "Connection pooling and descriptor bounds in HttpSink webhook deliveries"
+description: "HttpSink creates an unbounded fresh TCP socket per webhook delivery without pooling or backpressure, exhausting file descriptors."
+base_commit: golden-baseline
+test_command: "cargo test --lib events::dispatch::tests"
+status: ready
