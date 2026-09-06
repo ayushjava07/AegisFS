@@ -1,0 +1,9 @@
+diff --git a/src/domain/retry_policy.rs b/src/domain/retry_policy.rs
+index 4b5c6d7..1e2f3a4 100644
+--- a/src/domain/retry_policy.rs
++++ b/src/domain/retry_policy.rs
+@@ -129,3 +129,3 @@ impl RetryPolicy {
+     pub fn validate(&self) -> Result<(), PolicyError> {
+-        if self.max_attempts == 0 || self.max_attempts > MAX_ATTEMPTS {
++        if self.max_attempts > MAX_ATTEMPTS {
+             return Err(PolicyError::BadAttempts(self.max_attempts));

@@ -1,0 +1,8 @@
+id: RV-015
+category: boundary
+subsystem: retry
+title: "Normalize max_attempts 0 boundary in retry policy specification"
+description: "max_attempts: 0 causes conflicting semantics across transports (infinite vs immediate exhaustion) instead of being normalized at parse time."
+base_commit: golden-baseline
+test_command: "cargo test --test boundary retry"
+status: ready

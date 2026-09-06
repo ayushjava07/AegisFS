@@ -1,0 +1,14 @@
+diff --git a/tests/boundary.rs b/tests/boundary.rs
+index 7a8b9c0..3d4e5f6 100644
+--- a/tests/boundary.rs
++++ b/tests/boundary.rs
+@@ -140,6 +140,13 @@ mod boundary_tests {
++    #[test]
++    // [F2P] RV-015 witness (max_attempts = 0 rejected across transports)
++    fn retry_policy_zero_attempts_rejected() {
++        let policy = RetryPolicy {
++            max_attempts: 0,
++            ..RetryPolicy::default()
++        };
++        assert!(policy.validate().is_err());
++    }
