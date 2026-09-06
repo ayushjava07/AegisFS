@@ -1,0 +1,13 @@
+diff --git a/src/config.rs b/src/config.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -415,6 +415,13 @@ mod tests {
++    #[test]
++    // [P2P] RV-026 witness (negative workers in env rejected)
++    fn negative_workers_in_env_rejected() {
++        let mut cfg = Config::default();
++        let mut env = BTreeMap::new();
++        env.insert("RUNVANE_WORKERS".to_string(), "-1".to_string());
++        assert!(cfg.apply_env_map(&env).is_err());
++    }

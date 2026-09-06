@@ -1,0 +1,8 @@
+id: RV-026
+category: config
+subsystem: config
+title: "Reject negative worker count in RUNVANE_WORKERS environment variable"
+description: "RUNVANE_WORKERS=-1 parses through unchecked signed cast into usize::MAX worker count, crashing the host."
+base_commit: golden-baseline
+test_command: "cargo test --lib config::tests"
+status: ready

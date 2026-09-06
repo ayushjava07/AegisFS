@@ -1,0 +1,10 @@
+diff --git a/src/config.rs b/src/config.rs
+index 7a6c9e0..8e4b2d1 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -211,4 +211,3 @@ impl Config {
+         if let Some(v) = env.get("RUNVANE_WORKERS").cloned() {
+-            let w: i64 = parse_required("RUNVANE_WORKERS", &v)?;
+-            self.workers = w as usize;
++            self.workers = parse_required("RUNVANE_WORKERS", &v)?;
+             applied.insert("RUNVANE_WORKERS", v);
