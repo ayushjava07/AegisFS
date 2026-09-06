@@ -128,13 +128,40 @@ pub fn validate_webhook_url(url: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Validates a run submission payload by size.
+/// Maximum allowed JSON nesting depth for inputs.
+pub const MAX_JSON_DEPTH: usize = 64;
+
+/// Computes the maximum nesting depth of a JSON document.
+pub fn json_depth(value: &Json, current_depth: usize) -> usize {
+    match value {
+        Json::Array(items) => items
+            .iter()
+            .map(|item| json_depth(item, current_depth + 1))
+            .max()
+            .unwrap_or(current_depth + 1),
+        Json::Object(map) => map
+            .values()
+            .map(|val| json_depth(val, current_depth + 1))
+            .max()
+            .unwrap_or(current_depth + 1),
+        _ => current_depth,
+    }
+}
+
+/// Validates a run submission payload by size and recursion depth.
 pub fn validate_run_input(input: &Json) -> Result<(), DomainError> {
     let size = json_size(input);
     if size > MAX_RUN_INPUT_BYTES {
         return Err(DomainError::InputTooLarge {
             size,
             cap: MAX_RUN_INPUT_BYTES,
+        });
+    }
+    let depth = json_depth(input, 0);
+    if depth > MAX_JSON_DEPTH {
+        return Err(DomainError::InputTooDeep {
+            depth,
+            limit: MAX_JSON_DEPTH,
         });
     }
     Ok(())
@@ -319,5 +346,15 @@ mod tests {
             Err(DomainError::InputTooLarge { .. })
         ));
         assert!(validate_run_input(&Json::Null).is_ok());
+    }
+
+    #[test]
+    fn run_input_nesting_depth_guard() {
+        let mut nested = serde_json::json!("leaf");
+        for _ in 0..MAX_JSON_DEPTH + 5 {
+            nested = serde_json::json!([nested]);
+        }
+        let err = validate_run_input(&nested).unwrap_err();
+        assert!(matches!(err, DomainError::InputTooDeep { .. }));
     }
 }

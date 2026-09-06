@@ -58,6 +58,15 @@ pub enum DomainError {
         cap: usize,
     },
 
+    /// Input payload nesting depth exceeded maximum recursion limit.
+    #[error("input payload nesting depth of {depth} exceeds limit of {limit}")]
+    InputTooDeep {
+        /// Measured nesting depth.
+        depth: usize,
+        /// Maximum allowed depth.
+        limit: usize,
+    },
+
     /// A referenced handler id is not registered with the platform.
     #[error("unknown handler {0:?}")]
     UnknownHandler(HandlerId),
@@ -106,6 +115,7 @@ impl DomainError {
             | Self::EmptyTasks
             | Self::TooManyTasks
             | Self::InputTooLarge { .. }
+            | Self::InputTooDeep { .. }
             | Self::InvalidPolicy(_)
             | Self::ZeroTimeout
             | Self::DescriptionTooLong
