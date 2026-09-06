@@ -182,3 +182,4 @@ b1fe75d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 783681f | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-032 for retry attempt bounds
 295a133 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-033 for in-memory retention cleanup
 8e4a2f1 | phase 8 | gate: PASS | docs: update benchmark notes and README for 33 packaged defect tasks
+3d1f08c | phase 2 | gate: PASS | feat(engine): implement workflow static simulation and dry-run analysis engine
