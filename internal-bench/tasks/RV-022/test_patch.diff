@@ -1,0 +1,19 @@
+diff --git a/src/api/grpc.rs b/src/api/grpc.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/api/grpc.rs
++++ b/src/api/grpc.rs
+@@ -750,6 +750,15 @@ mod tests {
++    #[test]
++    // [P2P] RV-022 witness (proto retry fields exceeding MAX_BACKOFF_MS rejected)
++    fn proto_retry_oversized_delay_rejected() {
++        let proto = ProtoRetryPolicy {
++            max_attempts: 3,
++            base_delay_ms: u64::MAX,
++            max_delay_ms: u64::MAX,
++            multiplier: 2.0,
++            backoff: "exponential".into(),
++            jitter: "none".into(),
++            retryable_only: false,
++        };
++        assert!(retry_from(Some(&proto)).is_err());
++    }

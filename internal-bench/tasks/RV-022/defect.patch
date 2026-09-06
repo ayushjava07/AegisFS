@@ -1,0 +1,10 @@
+diff --git a/src/api/grpc.rs b/src/api/grpc.rs
+index 8e4b2d1..7a6c9e0 100644
+--- a/src/api/grpc.rs
++++ b/src/api/grpc.rs
+@@ -172,4 +172,2 @@ fn retry_from(proto: Option<&ProtoRetryPolicy>) -> Result<Option<RetryPolicy>, Status> {
+     };
+-    policy
+-        .validate()
+-        .map_err(|e| Status::invalid_argument(e.to_string()))?;
+     Ok(Some(policy))
