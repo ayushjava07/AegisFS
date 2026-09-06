@@ -153,3 +153,4 @@ d6a175d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 d9d4533 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-004 for pre-execution cancellation check
 38d4939 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-005 for terminal run release guard
 d4185a1 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-006 for zero-worker validation
+1bc4cad | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-007 for terminal status persistence
