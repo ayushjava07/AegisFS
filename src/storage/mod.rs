@@ -3,6 +3,7 @@
 //! Provides content-addressable storage for large task outputs, reports, and binaries.
 
 pub mod artifacts;
+pub mod gc;
 
 #[cfg(test)]
 mod tests;
