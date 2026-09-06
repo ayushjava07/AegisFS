@@ -1,0 +1,8 @@
+id: RV-005
+category: state_transition
+subsystem: scheduler
+title: "Prevent release from re-queueing terminal runs"
+description: "A late or stale release invocation can re-queue an already Succeeded run if the lease release check only checks the token."
+base_commit: golden-baseline
+test_command: "cargo test --lib persistence::tests::release_rejects_terminal_run"
+status: ready

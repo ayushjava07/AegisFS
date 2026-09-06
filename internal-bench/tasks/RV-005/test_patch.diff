@@ -1,0 +1,12 @@
+diff --git a/src/persistence/store_tests.rs b/src/persistence/store_tests.rs
+index b3c4d5e..c4d5e6f 100644
+--- a/src/persistence/store_tests.rs
++++ b/src/persistence/store_tests.rs
+@@ -190,6 +190,14 @@ pub fn queue_lifecycle(store: &dyn Store) {
++    // [F2P] RV-005 witness (stale release cannot re-queue terminal Succeeded run)
++    let run = fixtures::run("rn_stale_term", "acme", "ship", RunStatus::Succeeded, 100);
++    store.put_run(&run).unwrap();
++    let token = ClaimToken::new();
++    let res = store.release(&run.id, &token, 500);
++    assert!(res.is_err(), "stale release on Succeeded run must fail");
++    assert_eq!(store.get_run(&run.id).unwrap().status, RunStatus::Succeeded);
