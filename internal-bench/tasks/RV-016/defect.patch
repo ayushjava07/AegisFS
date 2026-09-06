@@ -1,0 +1,12 @@
+diff --git a/src/persistence/memory.rs b/src/persistence/memory.rs
+index 8e4b2d1..7a6c9e0 100644
+--- a/src/persistence/memory.rs
++++ b/src/persistence/memory.rs
+@@ -241,7 +241,7 @@ impl Store for MemoryStore {
+         let mut new_entry = entry.clone();
+         new_entry.token = token.clone();
+         new_entry.claimed_by = Some("dispatcher".to_owned());
+-        new_entry.lease_until_ms = Some(now_ms.saturating_add(lease_ms));
++        new_entry.lease_until_ms = Some(now_ms + lease_ms);
+         guard.queue.insert(run_id.clone(), new_entry);
+         Ok(())

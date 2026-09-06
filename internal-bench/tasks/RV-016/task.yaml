@@ -1,0 +1,8 @@
+id: RV-016
+category: boundary
+subsystem: scheduler
+title: "Prevent integer overflow in lease deadline calculation using saturating_add"
+description: "Lease duration addition now_ms + lease_ms overflows with large durations, creating negative deadlines and immediate lease expiration."
+base_commit: golden-baseline
+test_command: "cargo test --test boundary lease"
+status: ready

@@ -1,0 +1,16 @@
+diff --git a/tests/boundary.rs b/tests/boundary.rs
+index 7a8b9c0..3d4e5f6 100644
+--- a/tests/boundary.rs
++++ b/tests/boundary.rs
+@@ -145,6 +145,15 @@ mod boundary_tests {
++    #[test]
++    // [F2P] RV-016 witness (lease_ms near i64::MAX saturates without overflow)
++    fn lease_deadline_saturating_add_on_large_duration() {
++        let store = MemoryStore::new();
++        let run = fixture_run("rn_overflow");
++        store.put_run(&run).unwrap();
++        store.enqueue_run(&run.id, 100, 1).unwrap();
++        store.claim(&run.id, &ClaimToken::new("t1"), 1000, i64::MAX).unwrap();
++        let entry = store.get_queue_entry(&run.id).unwrap();
++        assert_eq!(entry.lease_until_ms, Some(i64::MAX));
++    }
