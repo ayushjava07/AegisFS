@@ -39,11 +39,29 @@ impl Backoff {
             BackoffKind::Fixed => base,
             BackoffKind::Linear => {
                 let growth = self.policy.multiplier;
-                base.saturating_add((base as f64 * (growth - 1.0) * attempt_index as f64) as u64)
+                if growth <= 1.0 {
+                    base
+                } else {
+                    let step = (base as f64) * (growth - 1.0) * (attempt_index as f64);
+                    if step.is_finite() && step >= 0.0 {
+                        base.saturating_add(step as u64)
+                    } else {
+                        max
+                    }
+                }
             }
             BackoffKind::Exponential => {
                 let growth = self.policy.multiplier;
-                (base as f64 * growth.powf(attempt_index as f64)) as u64
+                if growth <= 1.0 {
+                    base
+                } else {
+                    let val = (base as f64) * growth.powf(attempt_index as f64);
+                    if val.is_finite() && val >= 0.0 {
+                        (val as u64).min(max)
+                    } else {
+                        max
+                    }
+                }
             }
         };
         raw.clamp(base, max)
@@ -193,5 +211,24 @@ mod tests {
         let p2 = RetryPolicy::fixed(2, 1_000);
         let next = next_attempt_at_ms(&p2, 1, true, 5_000, SEED).unwrap();
         assert_eq!(next, 6_000);
+    }
+
+    #[test]
+    fn huge_attempt_index_does_not_overflow_or_panic() {
+        let p = RetryPolicy::exponential(100, 1_000, 60_000);
+        let b = Backoff::new(&p, SEED);
+        assert_eq!(b.raw_delay(u32::MAX), 60_000);
+
+        let p_linear = RetryPolicy {
+            max_attempts: 100,
+            base_delay_ms: 1_000,
+            max_delay_ms: 60_000,
+            multiplier: 2.0,
+            backoff: BackoffKind::Linear,
+            jitter: JitterKind::None,
+            retryable_only: false,
+        };
+        let b_linear = Backoff::new(&p_linear, SEED);
+        assert_eq!(b_linear.raw_delay(u32::MAX), 60_000);
     }
 }
