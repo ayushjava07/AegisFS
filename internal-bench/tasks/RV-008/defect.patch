@@ -1,0 +1,21 @@
+diff --git a/src/scheduler/pool.rs b/src/scheduler/pool.rs
+index f1a2b3c..d4e5f6a 100644
+--- a/src/scheduler/pool.rs
++++ b/src/scheduler/pool.rs
+@@ -194,18 +194,8 @@ impl WorkerPool {
+-                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+-                        executor.attempt_with_token(job.run_id.as_str(), Some(&job.token), 60_000)
+-                    }));
+-                    match result {
+-                        Ok(Ok(outcome)) => apply_action(store.as_ref(), &job, outcome.action),
+-                        Ok(Err(_)) => {
+-                            let _ = store.release(&job.run_id, &job.token, clock.now_ms());
+-                        }
+-                        Err(_) => {
+-                            let _ = store.release(&job.run_id, &job.token, clock.now_ms());
+-                        }
+-                    }
++                    match executor.attempt_with_token(job.run_id.as_str(), Some(&job.token), 60_000) {
++                        Ok(outcome) => apply_action(store.as_ref(), &job, outcome.action),
++                        Err(_) => { let _ = store.release(&job.run_id, &job.token, clock.now_ms()); }
++                    }

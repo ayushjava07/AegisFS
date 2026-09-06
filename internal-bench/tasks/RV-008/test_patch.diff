@@ -1,0 +1,8 @@
+diff --git a/src/scheduler/tests.rs b/src/scheduler/tests.rs
+index a1b2c3d..d5e6f7a 100644
+--- a/src/scheduler/tests.rs
++++ b/src/scheduler/tests.rs
+@@ -710,6 +710,12 @@ fn worker_pool_panic_boundary_recovers_and_serves_subsequent_jobs() {
++    // [F2P] RV-008 witness (panicking task does not abort thread; second job succeeds)
++    assert_eq!(run_status(store.as_ref(), &rid_ok), RunStatus::Succeeded);
+ }
