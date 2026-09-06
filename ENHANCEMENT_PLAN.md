@@ -129,4 +129,5 @@ b766915 | phase 2 | gate: PASS | feat(scheduler): heartbeat and renew claim leas
 ff8a926 | phase 2 | gate: PASS | feat(persistence): expand RunFilter with multi-status, tag keys, finished bounds, duration, and pagination offset
 d86f450 | phase 2 | gate: PASS | feat(plugins): implement runvane.http and runvane.script execution handlers
 9b0c257 | phase 2 | gate: PASS | feat(audit): introduce structured audit logging engine with memory and file backends
+2d41573 | phase 2 | gate: PASS | feat(api): expose /v1/audit endpoint and record operational audit events
 
