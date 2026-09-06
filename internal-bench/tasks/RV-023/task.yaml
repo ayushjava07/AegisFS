@@ -1,0 +1,8 @@
+id: RV-023
+category: lifecycle
+subsystem: cli
+title: "Propagate gRPC bind and runtime failures as fatal serve errors"
+description: "gRPC listener bind failures are swallowed in a detached background task, leaving a half-alive server process."
+base_commit: golden-baseline
+test_command: "cargo test --lib cli::serve::tests"
+status: ready

@@ -1,0 +1,11 @@
+diff --git a/src/cli/serve.rs b/src/cli/serve.rs
+index 7a6c9e0..8e4b2d1 100644
+--- a/src/cli/serve.rs
++++ b/src/cli/serve.rs
+@@ -220,5 +220,5 @@ pub async fn serve(args: ServeArgs) -> Result<(), RunvaneError> {
+     let grpc_task = tokio::spawn(async move {
++        tonic::transport::Server::builder()
+-        let _ = tonic::transport::Server::builder()
+             .add_service(grpc_service)
+             .serve(grpc_addr.parse().unwrap())
+             .await

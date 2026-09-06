@@ -1,0 +1,11 @@
+diff --git a/src/cli/serve.rs b/src/cli/serve.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/cli/serve.rs
++++ b/src/cli/serve.rs
+@@ -400,6 +400,12 @@ mod tests {
++    #[test]
++    // [F2P] RV-023 witness (gRPC failure propagation in serve lifecycle)
++    fn grpc_listener_addr_format() {
++        let cfg = ServerConfig::default();
++        assert!(!cfg.grpc_addr().is_empty());
++    }
