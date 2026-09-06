@@ -54,6 +54,8 @@ pub enum Command {
     Runs(RunCommand),
     /// Statically simulate and analyze a workflow DAG without running it.
     DryRun(DryRunArgs),
+    /// Display real-time control plane health and execution telemetry.
+    Stats(StatsArgs),
     /// Print product/build info.
     Version,
 }
@@ -192,6 +194,14 @@ pub struct DryRunArgs {
     pub format: String,
 }
 
+/// `runvane stats` arguments.
+#[derive(Debug, Clone, Args)]
+pub struct StatsArgs {
+    /// Output format (`text` or `json`).
+    #[arg(short = 'f', long, default_value = "text")]
+    pub format: String,
+}
+
 impl Cli {
     /// Parses argv without exiting (testable) — the clap top-level entry for
     /// `main`.
@@ -213,6 +223,7 @@ pub async fn execute(cli: &Cli) -> Result<(), RunvaneError> {
         Command::Workflows(wf) => workflows(cli, wf).await,
         Command::Runs(runs) => run_commands(cli, runs).await,
         Command::DryRun(args) => dry_run(args),
+        Command::Stats(args) => stats_command(cli, args).await,
         Command::Version => {
             println!("{} {VERSION} — {PRODUCT_TAGLINE}", crate::PRODUCT_NAME);
             Ok(())
@@ -393,6 +404,63 @@ fn dry_run(args: &DryRunArgs) -> Result<(), RunvaneError> {
         println!("{json}");
     } else {
         print!("{}", report.format_text());
+    }
+    Ok(())
+}
+
+async fn stats_command(cli: &Cli, args: &StatsArgs) -> Result<(), RunvaneError> {
+    let mut client = client::Client::connect(&cli.endpoint).await?;
+    let health = client.health().await?;
+    let workflows = client.list_workflows("").await?;
+    let runs = client.list_runs("", "", "", 500).await?;
+
+    let now_ms = health.now_ms;
+    let uptime_s = (now_ms - health.booted_at_ms).max(0) / 1000;
+
+    let mut succeeded = 0usize;
+    let mut running = 0usize;
+    let mut queued = 0usize;
+    let mut failed = 0usize;
+
+    for r_bytes in &runs.run_json {
+        if let Ok(val) = serde_json::from_slice::<serde_json::Value>(r_bytes) {
+            if let Some(status) = val.get("status").and_then(|s| s.as_str()) {
+                match status {
+                    "succeeded" => succeeded += 1,
+                    "running" => running += 1,
+                    "queued" => queued += 1,
+                    _ => failed += 1,
+                }
+            }
+        }
+    }
+
+    if args.format == "json" {
+        let payload = serde_json::json!({
+            "status": health.status,
+            "uptime_seconds": uptime_s,
+            "queue_depth": health.queue_depth,
+            "workflow_count": workflows.definition_json.len(),
+            "runs": {
+                "total": runs.run_json.len(),
+                "succeeded": succeeded,
+                "running": running,
+                "queued": queued,
+                "failed": failed,
+            }
+        });
+        println!("{}", serde_json::to_string_pretty(&payload).unwrap());
+    } else {
+        println!("=== Runvane Control Plane Diagnostics ===");
+        println!("Status:       {}", health.status);
+        println!("Uptime:       {}s", uptime_s);
+        println!("Queue Depth:  {}", health.queue_depth);
+        println!("Workflows:    {}", workflows.definition_json.len());
+        println!("Total Runs:   {}", runs.run_json.len());
+        println!("  - Succeeded: {}", succeeded);
+        println!("  - Running:   {}", running);
+        println!("  - Queued:    {}", queued);
+        println!("  - Failed:    {}", failed);
     }
     Ok(())
 }
@@ -744,5 +812,18 @@ mod tests {
 
         let cli_json = parse(&["dry-run", "-f", "json", spec_file.to_str().unwrap()]).unwrap();
         execute(&cli_json).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn stats_cli_diagnostics() {
+        let (endpoint, handle) = spawn_test_server().await;
+
+        let cli = parse(&["--endpoint", &endpoint, "stats"]).unwrap();
+        execute(&cli).await.unwrap();
+
+        let cli_json = parse(&["--endpoint", &endpoint, "stats", "-f", "json"]).unwrap();
+        execute(&cli_json).await.unwrap();
+
+        handle.abort();
     }
 }
