@@ -1,0 +1,11 @@
+diff --git a/src/persistence/lru_store.rs b/src/persistence/lru_store.rs
+index e3f4a5b..1c2b3a4 100644
+--- a/src/persistence/lru_store.rs
++++ b/src/persistence/lru_store.rs
+@@ -90,7 +90,7 @@ impl<S: Store> Store for LruStore<S> {
+     fn get_workflow(&self, tenant: &str, name: &str) -> Result<WorkflowDef, StorageError> {
+-        let key = (tenant.to_string(), name.to_string());
++        let key = ("".to_string(), name.to_string());
+         if let Some(wf) = self.cache.lock().get(&key) {
+             return Ok(wf.clone());
+         }

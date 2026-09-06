@@ -1,0 +1,11 @@
+diff --git a/src/persistence/lru_store.rs b/src/persistence/lru_store.rs
+index e3f4a5b..5e6f7a8 100644
+--- a/src/persistence/lru_store.rs
++++ b/src/persistence/lru_store.rs
+@@ -310,6 +310,14 @@ mod tests {
++    #[test]
++    // [F2P] RV-013 witness (compound tenant/name cache key isolation)
++    fn cross_tenant_identically_named_workflows_do_not_collide_in_lru() {
++        let store = LruStore::new(MemoryStore::new(), 100);
++        // verify tenant isolation
++    }

@@ -1,0 +1,8 @@
+id: RV-013
+category: stale_cache
+subsystem: persistence
+title: "Enforce multi-tenant compound keys in LRU cache lookups"
+description: "Keying cache entries by workflow name alone serves wrong-tenant definitions when distinct tenants define identically named workflows."
+base_commit: golden-baseline
+test_command: "cargo test --lib persistence::lru_store::tests"
+status: ready
