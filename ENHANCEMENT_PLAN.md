@@ -127,4 +127,5 @@ f1a8f47 | phase 2 | gate: PASS | feat(scheduler): support cooperative in-flight 
 b766915 | phase 2 | gate: PASS | feat(scheduler): heartbeat and renew claim leases across multi-task execution
 86da055 | phase 2 | gate: PASS | feat(events): add durable webhook retry outbox and dead-letter queue (DLQ)
 ff8a926 | phase 2 | gate: PASS | feat(persistence): expand RunFilter with multi-status, tag keys, finished bounds, duration, and pagination offset
+d86f450 | phase 2 | gate: PASS | feat(plugins): implement runvane.http and runvane.script execution handlers
 
