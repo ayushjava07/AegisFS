@@ -132,4 +132,5 @@ d86f450 | phase 2 | gate: PASS | feat(plugins): implement runvane.http and runva
 2d41573 | phase 2 | gate: PASS | feat(api): expose /v1/audit endpoint and record operational audit events
 b29aa64 | phase 2 | gate: PASS | feat(telemetry): add Prometheus text exposition and diagnostic health probes
 0067e04 | phase 2 | gate: PASS | feat(domain): add workflow versioning, canary routing, and compatibility analysis
+3e2b792 | phase 2 | gate: PASS | feat(engine): implement task expression evaluation and variable templating
 
