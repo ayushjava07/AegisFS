@@ -188,3 +188,4 @@ b1fe75d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 65424c3 | phase 5 | gate: PASS | feat(dashboard): expand status dashboard with SVG execution timeline and storage gauges
 f3bdd7a | phase 3 | gate: PASS | feat(cli): add stats subcommand for real-time control plane diagnostics
 c965c49 | phase 7 | gate: PASS | test(e2e): add comprehensive multi-step orchestration scenario suite
+de7f3b8 | phase 8 | gate: PASS | docs: update system documentation for dry-run simulation, stats diagnostics, and artifact gc
