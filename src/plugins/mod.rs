@@ -4,4 +4,5 @@
 //! registry, and the built-in handlers. Later phases extend this module with
 //! dynamic loading and forwarding plugins.
 
+pub mod exec;
 pub mod handler;

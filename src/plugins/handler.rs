@@ -173,6 +173,14 @@ impl Registry {
             HandlerId::from_validated(format!("{RUNVANE_NAMESPACE}.delay")),
             Arc::new(DelayHandler::default()),
         );
+        self.register(
+            HandlerId::from_validated(format!("{RUNVANE_NAMESPACE}.http")),
+            Arc::new(super::exec::HttpTaskHandler::default()),
+        );
+        self.register(
+            HandlerId::from_validated(format!("{RUNVANE_NAMESPACE}.script")),
+            Arc::new(super::exec::ScriptTaskHandler),
+        );
     }
 }
 
@@ -285,9 +293,15 @@ mod tests {
     #[test]
     fn builtins_are_registered() {
         let r = registry();
-        assert_eq!(r.ids().len(), 4);
+        assert_eq!(r.ids().len(), 6);
         assert!(r
             .get(&HandlerId::from_validated("runvane.echo".into()))
+            .is_some());
+        assert!(r
+            .get(&HandlerId::from_validated("runvane.http".into()))
+            .is_some());
+        assert!(r
+            .get(&HandlerId::from_validated("runvane.script".into()))
             .is_some());
     }
 
