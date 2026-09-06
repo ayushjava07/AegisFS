@@ -141,3 +141,4 @@ eaa0658 | phase 3 | gate: PASS | feat(validation): enforce maximum JSON nesting 
 13d334f | phase 3 | gate: PASS | feat(scheduler): install panic boundary on worker thread loop with lease release
 1ea0f7e | phase 3 | gate: PASS | feat(retry): harden backoff calculation against floating-point and integer overflow
 7110e89 | phase 4 | gate: PASS | test(retry): add property-based test suite for backoff curves and jitter invariants
+baeeeef | phase 4 | gate: PASS | test(dag): add property-based test suite for topological sorting and cycle detection
