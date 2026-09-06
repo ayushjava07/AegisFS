@@ -163,3 +163,4 @@ e726229 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 1441d86 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-014 for version-bump cache invalidation
 a69049f | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-015 for retry max_attempts sentinel
 0f28215 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-016 for saturating lease deadline
+036297d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-017 for RunQuery limit boundary
