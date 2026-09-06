@@ -14,13 +14,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value as Json;
 
 use crate::domain::workflow::{HookSpec, WorkflowDef};
 use crate::events::{delivery_id, EventKind, RunEventDoc};
 
 /// A single webhook delivery decision: destination, headers, and payload.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Delivery {
     /// Stable id for this delivery (dedup on the consumer side).
     pub id: String,

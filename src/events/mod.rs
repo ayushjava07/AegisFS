@@ -18,6 +18,7 @@ use crate::domain::ids::RunId;
 use crate::domain::run::{Run, RunError};
 
 pub mod dispatch;
+pub mod outbox;
 pub mod watcher;
 
 /// The lifecycle milestones a hook can be attached to.
