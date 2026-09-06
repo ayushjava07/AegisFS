@@ -122,3 +122,5 @@ Every commit authored from Phase 2 onward adheres strictly to:
 
 ## Commit Log
 
+f1a8f47 | phase 2 | gate: PASS | feat(scheduler): support cooperative in-flight task cancellation and token signalling
+
