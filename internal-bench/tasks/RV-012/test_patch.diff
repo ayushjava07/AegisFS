@@ -1,0 +1,8 @@
+diff --git a/src/scheduler/tests.rs b/src/scheduler/tests.rs
+index a1b2c3d..3e4f5a6 100644
+--- a/src/scheduler/tests.rs
++++ b/src/scheduler/tests.rs
+@@ -540,6 +540,12 @@ fn lease_heartbeat_uses_injected_clock() {
++    // [F2P] RV-012 witness (lease renewed strictly according to injected clock)
++    assert_eq!(outcome.run_status, RunStatus::Succeeded);
+ }

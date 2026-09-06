@@ -1,0 +1,8 @@
+id: RV-012
+category: concurrency
+subsystem: scheduler
+title: "Propagate monotonic clock source to all store lease operations"
+description: "Inconsistent clock sources between scheduler and store cause artificial lease expirations and timing drift."
+base_commit: golden-baseline
+test_command: "cargo test --lib scheduler::tests"
+status: ready

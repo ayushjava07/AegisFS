@@ -1,0 +1,8 @@
+diff --git a/src/scheduler/executor.rs b/src/scheduler/executor.rs
+index d2e3f4a..7b8c9d0 100644
+--- a/src/scheduler/executor.rs
++++ b/src/scheduler/executor.rs
+@@ -190,7 +190,7 @@ impl<'a> RunExecutor<'a> {
+-            let now = self.clock.now_ms();
++            let now = chrono::Utc::now().timestamp_millis();
+             let _ = self.store.renew_lease(&rid, token, now, renewal_lease_ms);
