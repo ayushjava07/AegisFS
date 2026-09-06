@@ -1,0 +1,9 @@
+diff --git a/src/scheduler/executor.rs b/src/scheduler/executor.rs
+index 7a8b9c0..d2e3f4a 100644
+--- a/src/scheduler/executor.rs
++++ b/src/scheduler/executor.rs
+@@ -140,10 +140,6 @@ impl<'a> RunExecutor<'a> {
+         let mut run = self.store.get_run(&rid)?;
+-        if run.is_terminal() {
+-            return Ok(AttemptOutcome { action: RunAction::Ack, run_status: run.status });
+-        }

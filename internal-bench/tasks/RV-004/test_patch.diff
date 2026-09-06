@@ -1,0 +1,12 @@
+diff --git a/src/scheduler/tests.rs b/src/scheduler/tests.rs
+index a1b2c3d..b2c3d4e 100644
+--- a/src/scheduler/tests.rs
++++ b/src/scheduler/tests.rs
+@@ -620,6 +620,12 @@ fn in_flight_cancellation_aborts_run_cleanly() {
+     assert_eq!(run_status(store.as_ref(), &rid), RunStatus::Cancelled);
++
++    // [F2P] RV-004 witness (re-executing attempt on cancelled run immediately yields Ack with no new tasks)
++    let outcome = executor.attempt_with_token(rid.as_str(), Some(&token), 60_000).unwrap();
++    assert_eq!(outcome.run_status, RunStatus::Cancelled);
++    assert_eq!(outcome.action, RunAction::Ack);
+ }

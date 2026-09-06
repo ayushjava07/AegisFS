@@ -1,0 +1,8 @@
+id: RV-004
+category: state_transition
+subsystem: state
+title: "Verify non-cancelled status before worker execution"
+description: "A race between cancel_run and task execution allows workers holding older claim leases to execute tasks for cancelled runs."
+base_commit: golden-baseline
+test_command: "cargo test --lib scheduler::tests::in_flight_cancellation_aborts_run_cleanly"
+status: ready
