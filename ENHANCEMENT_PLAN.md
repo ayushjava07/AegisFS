@@ -149,3 +149,4 @@ a2e6c5c | phase 4 | gate: PASS | test(boundary): add comprehensive boundary-cond
 8642b23 | phase 4 | gate: PASS | test(fuzz): scaffold standalone fuzz harness with 5 parser and filter fuzz targets
 8374020 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-001 for gRPC list limit boundaries
 1a6c5a5 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-002 for multi-tenant run sequence isolation
+d6a175d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-003 for timed-out run re-queue clamping
