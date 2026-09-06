@@ -54,6 +54,9 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     // routes stay reachable without a token while everything else is gated.
     let open = Router::new()
         .route("/", get(dashboard))
+        .route("/metrics", get(prometheus_metrics))
+        .route("/healthz", get(healthz))
+        .route("/readyz", get(readyz))
         .route("/v1/health", get(health));
 
     let operator = Router::new()
@@ -198,6 +201,56 @@ async fn health(State(state): State<Arc<AppState>>) -> Json<Envelope<HealthView>
         queue_depth: state.store.len_queue(),
         spec_version: 1,
     }))
+}
+
+/// `GET /healthz` — process liveness check.
+async fn healthz() -> (StatusCode, [(&'static str, &'static str); 1], &'static str) {
+    (
+        StatusCode::OK,
+        [("content-type", "text/plain; charset=utf-8")],
+        "ok\n",
+    )
+}
+
+/// `GET /readyz` — process readiness probe checking backend store connectivity.
+async fn readyz(
+    State(state): State<Arc<AppState>>,
+) -> (StatusCode, [(&'static str, &'static str); 1], &'static str) {
+    match state.store.list_workflows() {
+        Ok(_) => (
+            StatusCode::OK,
+            [("content-type", "text/plain; charset=utf-8")],
+            "ready\n",
+        ),
+        Err(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            [("content-type", "text/plain; charset=utf-8")],
+            "store unavailable\n",
+        ),
+    }
+}
+
+/// `GET /metrics` — Prometheus standard text format exposition.
+async fn prometheus_metrics(
+    State(state): State<Arc<AppState>>,
+) -> (StatusCode, [(&'static str, &'static str); 1], String) {
+    let now = state.clock.now_ms();
+    let uptime_seconds = ((now - state.boot_ms).max(0) / 1000) as u64;
+    let gauges = crate::telemetry::PrometheusGauges {
+        queue_depth: state.store.len_queue() as u64,
+        workflows_count: state.store.list_workflows().map_or(0, |w| w.len() as u64),
+        runs_count: state
+            .store
+            .list_runs(&crate::persistence::RunFilter::default())
+            .map_or(0, |r| r.len() as u64),
+        uptime_seconds,
+    };
+    let body = state.metrics.render_prometheus(&gauges);
+    (
+        StatusCode::OK,
+        [("content-type", "text/plain; version=0.0.4; charset=utf-8")],
+        body,
+    )
 }
 
 /// `GET /v1/debug/metrics` — counter snapshot plus store-derived gauges.
@@ -1147,5 +1200,42 @@ mod tests {
         let data = envelope["data"].as_array().expect("array of audit records");
         assert_eq!(data.len(), 1);
         assert_eq!(data[0]["resource_type"], "workflow");
+    }
+
+    #[tokio::test]
+    async fn diagnostic_probes_and_prometheus_exposition() {
+        let state = test_state();
+        let app = build_router(state);
+
+        // GET /healthz
+        let req = Request::builder()
+            .uri("/healthz")
+            .body(Body::empty())
+            .unwrap();
+        let res = send(&app, req).await;
+        assert_eq!(res.status(), HttpStatus::OK);
+
+        // GET /readyz
+        let req = Request::builder()
+            .uri("/readyz")
+            .body(Body::empty())
+            .unwrap();
+        let res = send(&app, req).await;
+        assert_eq!(res.status(), HttpStatus::OK);
+
+        // GET /metrics
+        let req = Request::builder()
+            .uri("/metrics")
+            .body(Body::empty())
+            .unwrap();
+        let res = send(&app, req).await;
+        assert_eq!(res.status(), HttpStatus::OK);
+        let body = axum::body::to_bytes(res.into_body(), 1024 * 64)
+            .await
+            .unwrap();
+        let text = String::from_utf8(body.to_vec()).unwrap();
+        assert!(text.contains("runvane_queue_depth"));
+        assert!(text.contains("runvane_workflow_creations_total"));
+        assert!(text.contains("runvane_run_duration_seconds_bucket"));
     }
 }
