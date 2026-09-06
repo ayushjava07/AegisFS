@@ -1,0 +1,9 @@
+diff --git a/src/api/grpc.rs b/src/api/grpc.rs
+index 7a6c9e0..8e4b2d1 100644
+--- a/src/api/grpc.rs
++++ b/src/api/grpc.rs
+@@ -269,3 +269,4 @@ impl GrpcService {
+             name: wire.name,
++            description: (!wire.description.is_empty()).then_some(wire.description),
+-            description: (!wire.description.is_empty()).then_some(wire.description.chars().take(4096).collect()),
+             tasks: wire

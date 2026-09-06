@@ -1,0 +1,8 @@
+id: RV-029
+category: validation
+subsystem: api
+title: "Enforce 512 character description clamp in gRPC create_workflow"
+description: "gRPC create_workflow writes through unclamped descriptions (>512 chars) instead of enforcing shared character length limits."
+base_commit: golden-baseline
+test_command: "cargo test --lib api::grpc::tests"
+status: ready

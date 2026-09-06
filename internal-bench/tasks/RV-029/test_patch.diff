@@ -1,0 +1,12 @@
+diff --git a/src/api/grpc.rs b/src/api/grpc.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/api/grpc.rs
++++ b/src/api/grpc.rs
+@@ -750,6 +750,15 @@ mod tests {
++    #[test]
++    // [F2P] RV-029 witness (gRPC create_workflow rejects description > 512 chars)
++    fn grpc_create_workflow_description_too_long() {
++        let long_desc = "d".repeat(513);
++        let res = crate::domain::workflow::sanitize_description(&long_desc);
++        assert_eq!(res, Err(crate::domain::error::DomainError::DescriptionTooLong));
++    }
