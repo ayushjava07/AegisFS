@@ -169,3 +169,4 @@ a69049f | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 468a5e4 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-020 for EventKind code stability
 f752510 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-021 for semantic tag equality
 0b0b94c | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-022 for proto retry uint64 bounds
+d1cad2a | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-023 for gRPC listener failure propagation
