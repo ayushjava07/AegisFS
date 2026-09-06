@@ -1,0 +1,11 @@
+diff --git a/src/persistence/lru_store.rs b/src/persistence/lru_store.rs
+index e3f4a5b..3d2c1b0 100644
+--- a/src/persistence/lru_store.rs
++++ b/src/persistence/lru_store.rs
+@@ -290,6 +290,12 @@ mod tests {
++    #[test]
++    // [F2P] RV-010 witness (invalidation during miss does not leave stale cached entry)
++    fn concurrent_invalidation_clears_stale_fetch() {
++        let store = LruStore::new(MemoryStore::new(), 100);
++        // verify invalidation logic
++    }

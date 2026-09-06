@@ -1,0 +1,11 @@
+diff --git a/src/persistence/lru_store.rs b/src/persistence/lru_store.rs
+index 8c7b6a5..e3f4a5b 100644
+--- a/src/persistence/lru_store.rs
++++ b/src/persistence/lru_store.rs
+@@ -95,7 +95,7 @@ impl<S: Store> Store for LruStore<S> {
+         let wf = self.inner.get_workflow(tenant, name)?;
++        let mut cache = self.cache.lock();
++        cache.put((tenant.to_string(), name.to_string()), wf.clone());
+-        // un-synchronized post-fetch write
+         Ok(wf)
+     }

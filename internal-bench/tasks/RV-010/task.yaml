@@ -1,0 +1,8 @@
+id: RV-010
+category: concurrency
+subsystem: persistence
+title: "Atomically synchronize LRU cache fetch-or-load slot"
+description: "Concurrent cache misses can race with cache invalidations, allowing a slow loader to overwrite an invalidation with stale data."
+base_commit: golden-baseline
+test_command: "cargo test --lib persistence::lru_store::tests"
+status: ready
