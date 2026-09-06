@@ -1,0 +1,8 @@
+id: RV-020
+category: serialization
+subsystem: events
+title: "Pin EventKind machine-readable event codes to stable constants"
+description: "EventKind codes are desynced from wire specification (e.g. run.timeout instead of run.timed_out), breaking webhook subscribers."
+base_commit: golden-baseline
+test_command: "cargo test --lib events::tests"
+status: ready

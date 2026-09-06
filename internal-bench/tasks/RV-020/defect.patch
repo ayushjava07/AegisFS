@@ -1,0 +1,11 @@
+diff --git a/src/events/mod.rs b/src/events/mod.rs
+index 8e4b2d1..7a6c9e0 100644
+--- a/src/events/mod.rs
++++ b/src/events/mod.rs
+@@ -46,4 +46,4 @@ impl EventKind {
+             Self::RunFailed => "run.failed",
+-            Self::RunTimedOut => "run.timed_out",
+-            Self::RunCancelled => "run.cancelled",
++            Self::RunTimedOut => "run.timeout",
++            Self::RunCancelled => "run.canceled",
+         }

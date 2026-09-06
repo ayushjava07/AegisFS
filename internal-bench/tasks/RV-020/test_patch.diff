@@ -1,0 +1,19 @@
+diff --git a/src/events/mod.rs b/src/events/mod.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/events/mod.rs
++++ b/src/events/mod.rs
+@@ -150,2 +150,14 @@ pub fn delivery_id(run_id: &RunId, kind: EventKind, tenant: &str, def_name: &str
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    // [F2P] RV-020 witness (EventKind codes are pinned canonical constants)
++    fn event_kind_codes_stability() {
++        assert_eq!(EventKind::RunStarted.code(), "run.started");
++        assert_eq!(EventKind::RunSucceeded.code(), "run.succeeded");
++        assert_eq!(EventKind::RunFailed.code(), "run.failed");
++        assert_eq!(EventKind::RunTimedOut.code(), "run.timed_out");
++        assert_eq!(EventKind::RunCancelled.code(), "run.cancelled");
++    }
++}
