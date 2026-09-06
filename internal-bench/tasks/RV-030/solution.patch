@@ -1,0 +1,15 @@
+diff --git a/src/domain/dag.rs b/src/domain/dag.rs
+index 7a6c9e0..8e4b2d1 100644
+--- a/src/domain/dag.rs
++++ b/src/domain/dag.rs
+@@ -32,2 +32,10 @@ pub fn topo_order(tasks: &[TaskSpec]) -> Result<Vec<String>, DomainError> {
++    for (name, deps_of_name) in &deps {
++        for dep in deps_of_name {
++            if !deps.contains_key(*dep) {
++                return Err(DomainError::UnknownDependency(
++                    (*dep).to_owned(),
++                    (*name).to_owned(),
++                ));
++            }
++        }
++    }

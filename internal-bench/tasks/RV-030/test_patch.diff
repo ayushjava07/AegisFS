@@ -1,0 +1,12 @@
+diff --git a/src/domain/dag.rs b/src/domain/dag.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/domain/dag.rs
++++ b/src/domain/dag.rs
+@@ -160,6 +160,12 @@ mod tests {
++    #[test]
++    // [F2P] RV-030 witness (dangling unknown dependency is rejected)
++    fn dangling_dependency_rejected() {
++        let a = spec("a", "noop", &["missing_task"]);
++        let res = topo_order(&[a]);
++        assert!(matches!(res, Err(DomainError::UnknownDependency(..))));
++    }

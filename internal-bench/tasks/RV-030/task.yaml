@@ -1,0 +1,8 @@
+id: RV-030
+category: validation
+subsystem: domain
+title: "Reject dangling unknown task references in depends_on DAG validation"
+description: "Workflow DAG validation fails to check whether depends_on references existing tasks in the definition, causing tasks to hang indefinitely."
+base_commit: golden-baseline
+test_command: "cargo test --lib domain::dag::tests"
+status: ready
