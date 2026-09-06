@@ -63,3 +63,6 @@ pub mod telemetry;
 
 /// Structured audit logging engine for security and operational events.
 pub mod audit;
+
+/// Workflow task execution expression engine and variable templating.
+pub mod engine;
