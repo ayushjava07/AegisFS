@@ -1,0 +1,8 @@
+id: RV-032
+category: leak
+subsystem: retry
+title: "Cap retained retry attempt history for long-flapping runs"
+description: "Uncapped per-run attempt history retains unbounded execution logs across pathological retry sequences, leaking memory."
+base_commit: golden-baseline
+test_command: "cargo test --lib retry::tests"
+status: ready

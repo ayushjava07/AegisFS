@@ -1,0 +1,9 @@
+diff --git a/src/retry/mod.rs b/src/retry/mod.rs
+index 7a6c9e0..8e4b2d1 100644
+--- a/src/retry/mod.rs
++++ b/src/retry/mod.rs
+@@ -46,4 +46,3 @@ impl<'a> RetryPlanner<'a> {
+         let retryable = kind.retryable();
+         let now = self.clock.now_ms();
+-        // Retain unbounded history on each planned retry
+         match next_attempt_at_ms(self.policy, attempts, retryable, now, self.seed) {

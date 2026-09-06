@@ -1,0 +1,13 @@
+diff --git a/src/retry/mod.rs b/src/retry/mod.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/retry/mod.rs
++++ b/src/retry/mod.rs
+@@ -102,6 +102,14 @@ mod tests {
++    #[test]
++    // [F2P] RV-032 witness (bounded attempt planning under large attempts)
++    fn huge_attempts_count_gives_up_safely() {
++        let p = RetryPolicy::fixed(5, 1_000);
++        let clock = clock_at(5_000);
++        let planner = RetryPlanner::new(&p, &clock, 1);
++        assert_eq!(planner.plan(10_000, &FailureKind::TransientFailure), RetryPlan::GiveUp);
++    }
