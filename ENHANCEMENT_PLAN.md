@@ -130,4 +130,5 @@ ff8a926 | phase 2 | gate: PASS | feat(persistence): expand RunFilter with multi-
 d86f450 | phase 2 | gate: PASS | feat(plugins): implement runvane.http and runvane.script execution handlers
 9b0c257 | phase 2 | gate: PASS | feat(audit): introduce structured audit logging engine with memory and file backends
 2d41573 | phase 2 | gate: PASS | feat(api): expose /v1/audit endpoint and record operational audit events
+b29aa64 | phase 2 | gate: PASS | feat(telemetry): add Prometheus text exposition and diagnostic health probes
 
