@@ -174,3 +174,4 @@ b0549ff | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 c09ba75 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-025 for event watcher cadence decoupling
 b1fe75d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-026 for env signed worker count validation
 6135364 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-027 for unknown TOML fields
+77b8d06 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-028 for payload size bounds
