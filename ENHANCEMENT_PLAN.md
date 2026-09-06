@@ -143,3 +143,4 @@ eaa0658 | phase 3 | gate: PASS | feat(validation): enforce maximum JSON nesting 
 7110e89 | phase 4 | gate: PASS | test(retry): add property-based test suite for backoff curves and jitter invariants
 baeeeef | phase 4 | gate: PASS | test(dag): add property-based test suite for topological sorting and cycle detection
 7e4bf47 | phase 4 | gate: PASS | test(scheduler): add property-based test suite for cron parser and tick calculation
+6eea3a4 | phase 4 | gate: PASS | test(engine): add property-based test suite for expression evaluation and interpolation
