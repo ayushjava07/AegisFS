@@ -1,0 +1,14 @@
+diff --git a/src/api/payloads.rs b/src/api/payloads.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/api/payloads.rs
++++ b/src/api/payloads.rs
+@@ -350,6 +350,14 @@ mod tests {
++    #[test]
++    // [F2P] RV-017 witness (RunQuery limits outside 1..=500 are rejected)
++    fn run_query_limit_boundary_enforced() {
++        let q = RunQuery {
++            limit: Some(10_000),
++            ..RunQuery::default()
++        };
++        assert!(q.into_filter().is_err());
++    }

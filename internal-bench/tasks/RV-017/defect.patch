@@ -1,0 +1,15 @@
+diff --git a/src/api/payloads.rs b/src/api/payloads.rs
+index 8e4b2d1..7a6c9e0 100644
+--- a/src/api/payloads.rs
++++ b/src/api/payloads.rs
+@@ -208,8 +208,2 @@ impl RunQuery {
+-        let limit = match self.limit {
+-            None => None,
+-            Some(n) if n == 0 || n > MAX_LIST_LIMIT => {
+-                return Err(ApiError::bad_request(format!(
+-                    "limit must be within 1..={MAX_LIST_LIMIT}"
+-                )));
+-            }
+-            Some(n) => Some(n),
+-        };
++        let limit = self.limit;
