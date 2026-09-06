@@ -156,10 +156,28 @@ pub struct RunQuery {
     pub tenant: Option<String>,
     /// Match the workflow definition name exactly.
     pub name: Option<String>,
+    /// Match definition name by prefix.
+    pub name_prefix: Option<String>,
     /// Match the run status exactly.
     pub status: Option<String>,
+    /// Comma-separated list of run statuses (any match).
+    pub status_in: Option<String>,
+    /// Only runs submitted at or after this epoch ms.
+    pub from_ms: Option<i64>,
+    /// Only runs submitted before this epoch ms.
+    pub to_ms: Option<i64>,
+    /// Only runs completed at or after this epoch ms.
+    pub finished_from_ms: Option<i64>,
+    /// Only runs completed at or before this epoch ms.
+    pub finished_to_ms: Option<i64>,
+    /// Minimum run duration in milliseconds.
+    pub min_duration_ms: Option<i64>,
+    /// Comma-separated tag keys that must be present.
+    pub has_tag_keys: Option<String>,
     /// Maximum rows to return (1..=500).
     pub limit: Option<usize>,
+    /// Pagination offset (number of rows to skip).
+    pub offset: Option<usize>,
 }
 
 impl RunQuery {
@@ -172,6 +190,21 @@ impl RunQuery {
                     .map_err(|_| ApiError::bad_request(format!("invalid status {raw:?}")))?,
             ),
         };
+
+        let status_in = match self.status_in {
+            None => Vec::new(),
+            Some(raw) => {
+                let mut statuses = Vec::new();
+                for piece in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                    let s = RunStatus::from_str(piece).map_err(|_| {
+                        ApiError::bad_request(format!("invalid status_in element {piece:?}"))
+                    })?;
+                    statuses.push(s);
+                }
+                statuses
+            }
+        };
+
         let limit = match self.limit {
             None => None,
             Some(n) if n == 0 || n > MAX_LIST_LIMIT => {
@@ -181,11 +214,57 @@ impl RunQuery {
             }
             Some(n) => Some(n),
         };
+
+        let offset = self.offset.unwrap_or(0);
+
+        if let (Some(from), Some(to)) = (self.from_ms, self.to_ms) {
+            if from > to {
+                return Err(ApiError::bad_request(format!(
+                    "from_ms ({from}) must be <= to_ms ({to})"
+                )));
+            }
+        }
+
+        if let (Some(from), Some(to)) = (self.finished_from_ms, self.finished_to_ms) {
+            if from > to {
+                return Err(ApiError::bad_request(format!(
+                    "finished_from_ms ({from}) must be <= finished_to_ms ({to})"
+                )));
+            }
+        }
+
+        if let Some(dur) = self.min_duration_ms {
+            if dur < 0 {
+                return Err(ApiError::bad_request(format!(
+                    "min_duration_ms ({dur}) must be non-negative"
+                )));
+            }
+        }
+
+        let has_tag_keys = match self.has_tag_keys {
+            None => Vec::new(),
+            Some(raw) => raw
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(ToString::to_string)
+                .collect(),
+        };
+
         Ok(RunFilter {
             tenant: self.tenant,
             name: self.name,
+            name_prefix: self.name_prefix,
             status,
+            status_in,
+            from_ms: self.from_ms,
+            to_ms: self.to_ms,
+            finished_from_ms: self.finished_from_ms,
+            finished_to_ms: self.finished_to_ms,
+            min_duration_ms: self.min_duration_ms,
+            has_tag_keys,
             limit,
+            offset,
             ..RunFilter::default()
         })
     }
@@ -205,4 +284,94 @@ pub struct HealthView {
     pub queue_depth: usize,
     /// Envelope version the server speaks.
     pub spec_version: u8,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn run_query_defaults_to_empty_filter() {
+        let q = RunQuery::default();
+        let f = q.into_filter().expect("default query must parse");
+        assert_eq!(f, RunFilter::default());
+    }
+
+    #[test]
+    fn run_query_validates_status_and_status_in() {
+        let q = RunQuery {
+            status: Some("invalid_status".into()),
+            ..RunQuery::default()
+        };
+        assert!(q.into_filter().is_err());
+
+        let q = RunQuery {
+            status: Some("running".into()),
+            status_in: Some("queued, succeeded,failed".into()),
+            ..RunQuery::default()
+        };
+        let f = q.into_filter().expect("valid statuses");
+        assert_eq!(f.status, Some(RunStatus::Running));
+        assert_eq!(
+            f.status_in,
+            vec![RunStatus::Queued, RunStatus::Succeeded, RunStatus::Failed]
+        );
+
+        let q = RunQuery {
+            status_in: Some("queued, bogus".into()),
+            ..RunQuery::default()
+        };
+        assert!(q.into_filter().is_err());
+    }
+
+    #[test]
+    fn run_query_validates_limits_and_ranges() {
+        let q = RunQuery {
+            limit: Some(0),
+            ..RunQuery::default()
+        };
+        assert!(q.into_filter().is_err());
+
+        let q = RunQuery {
+            limit: Some(MAX_LIST_LIMIT + 1),
+            ..RunQuery::default()
+        };
+        assert!(q.into_filter().is_err());
+
+        let q = RunQuery {
+            from_ms: Some(200),
+            to_ms: Some(100),
+            ..RunQuery::default()
+        };
+        assert!(q.into_filter().is_err());
+
+        let q = RunQuery {
+            finished_from_ms: Some(500),
+            finished_to_ms: Some(400),
+            ..RunQuery::default()
+        };
+        assert!(q.into_filter().is_err());
+
+        let q = RunQuery {
+            min_duration_ms: Some(-10),
+            ..RunQuery::default()
+        };
+        assert!(q.into_filter().is_err());
+    }
+
+    #[test]
+    fn run_query_parses_tags_and_prefix() {
+        let q = RunQuery {
+            name_prefix: Some("etl-".into()),
+            has_tag_keys: Some("env, team , region".into()),
+            offset: Some(25),
+            limit: Some(50),
+            ..RunQuery::default()
+        };
+        let f = q.into_filter().expect("valid query");
+        assert_eq!(f.name_prefix.as_deref(), Some("etl-"));
+        assert_eq!(f.has_tag_keys, vec!["env", "team", "region"]);
+        assert_eq!(f.offset, 25);
+        assert_eq!(f.limit, Some(50));
+    }
 }
