@@ -178,3 +178,4 @@ b1fe75d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 07648cb | phase 8 | gate: PASS | docs: synchronize README, architecture, changelog, and benchmark notes
 34edfd3 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-029 for gRPC description length clamp
 5f5c17b | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-030 for dangling DAG task references
+9d75cf5 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-031 for HttpSink descriptor reuse
