@@ -1,0 +1,11 @@
+diff --git a/src/config.rs b/src/config.rs
+index 9c8d7e6..e1f2a3b 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -175,7 +175,7 @@ impl Config {
+     pub fn validate(&self) -> Result<(), ConfigError> {
++        if self.scheduler.workers == 0 {
++            return Err(ConfigError::Validation("worker count must be at least 1".into()));
++        }
+         Ok(())
+     }
