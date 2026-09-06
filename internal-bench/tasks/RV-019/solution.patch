@@ -1,0 +1,9 @@
+diff --git a/src/api/error.rs b/src/api/error.rs
+index 7a6c9e0..8e4b2d1 100644
+--- a/src/api/error.rs
++++ b/src/api/error.rs
+@@ -122,3 +122,3 @@ impl From<DomainError> for ApiError {
+     fn from(err: DomainError) -> Self {
+-        Self::internal(err.to_string())
++        Self::from_runvane(RunvaneError::from(err))
+     }

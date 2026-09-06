@@ -1,0 +1,8 @@
+id: RV-019
+category: error_propagation
+subsystem: api
+title: "Translate DomainError on submit run to 4xx bad request"
+description: "Domain validation errors on submit_run propagate as 500 internal server errors rather than 4xx client errors."
+base_commit: golden-baseline
+test_command: "cargo test --lib api::error::tests"
+status: ready

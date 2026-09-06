@@ -1,0 +1,12 @@
+diff --git a/src/api/error.rs b/src/api/error.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/api/error.rs
++++ b/src/api/error.rs
+@@ -165,6 +165,13 @@ mod tests {
++    #[test]
++    // [F2P] RV-019 witness (DomainError translates to 400 rather than 500)
++    fn domain_error_translates_to_400() {
++        let err = DomainError::InvalidName("bad_name".to_string());
++        let api_err = ApiError::from(err);
++        assert_eq!(api_err.http_status(), 400);
++    }
