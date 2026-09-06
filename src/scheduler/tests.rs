@@ -538,3 +538,85 @@ fn failed_dependency_skips_descendants_and_run_fails() {
 
     dispatcher.into_pool().shutdown();
 }
+
+#[test]
+// [F2P] RV-024 witness (in-flight run cancellation halts further task dispatch).
+fn in_flight_cancellation_aborts_run_cleanly() {
+    let store = Arc::new(MemoryStore::default());
+    let clock = Arc::new(ManualClock::at(6_000_000));
+    let registry = Arc::new(Registry::new());
+
+    // Handler for task 1 cancels the parent run in the store during execution.
+    struct CancellingHandler {
+        store: Arc<MemoryStore>,
+        clock: Arc<ManualClock>,
+    }
+
+    impl Handler for CancellingHandler {
+        fn execute(&self, ctx: TaskContext<'_>) -> Result<HandlerResult, HandlerError> {
+            let rid = RunId::from_validated(ctx.run_id.to_owned());
+            let _ = self.store.cancel_run(&rid, self.clock.value());
+            Ok(HandlerResult {
+                output: json!({ "cancelled_during": ctx.task_name }),
+            })
+        }
+
+        fn description(&self) -> &'static str {
+            "cancels the parent run mid-flight"
+        }
+    }
+
+    registry.register(
+        HandlerId::from_validated("testcancelmid".to_owned()),
+        Arc::new(CancellingHandler {
+            store: store.clone(),
+            clock: clock.clone(),
+        }),
+    );
+    registry.register(
+        HandlerId::from_validated("testneverrun".to_owned()),
+        Flaky::succeeds_after(0),
+    );
+
+    let def_name = "wf_cancelflight";
+    store
+        .put_workflow(def(
+            "wf_cancelflight",
+            def_name,
+            vec![
+                task("first", "testcancelmid", &[]),
+                task("second", "testneverrun", &["first"]),
+            ],
+            RetryPolicy::fixed(1, 100),
+        ))
+        .unwrap();
+
+    let rid = RunId::from_validated("rn_cancelflight01".to_owned());
+    store
+        .put_run(&fixtures::run(
+            "rn_cancelflight01",
+            "tenant1",
+            def_name,
+            RunStatus::Queued,
+            clock.value(),
+        ))
+        .unwrap();
+    enqueue(store.as_ref(), &rid, clock.value());
+
+    let pool = WorkerPool::spawn(2, registry, store.clone(), clock.clone(), 99);
+    let dispatcher = Dispatcher::new(store.as_ref(), &*clock, pool, 8, 60_000);
+
+    assert_eq!(dispatcher.step().claimed, 1);
+    poll(
+        || run_status(store.as_ref(), &rid) == RunStatus::Cancelled,
+        "run to cancel",
+    );
+
+    let tasks = store.list_task_runs_for_run(&rid).unwrap();
+    // Task 1 succeeded before cancelling, task 2 was never dispatched
+    assert!(tasks.iter().any(|t| t.task_name == "first"));
+    assert!(!tasks.iter().any(|t| t.task_name == "second"));
+    assert_eq!(store.len_queue(), 0);
+
+    dispatcher.into_pool().shutdown();
+}

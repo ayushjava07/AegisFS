@@ -21,6 +21,32 @@ use crate::domain::status::FailureKind;
 /// Handler identification symbol (namespace-qualified, e.g. `runvane.echo`).
 pub const RUNVANE_NAMESPACE: &str = "runvane";
 
+/// A cooperative cancellation token passed into tasks and shared with the worker.
+#[derive(Debug, Clone, Default)]
+pub struct CancellationToken {
+    cancelled: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl CancellationToken {
+    /// Creates a new uncancelled token.
+    pub fn new() -> Self {
+        Self {
+            cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        }
+    }
+
+    /// Signals cancellation to any holder of this token.
+    pub fn cancel(&self) {
+        self.cancelled
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    /// Returns `true` if cancellation has been requested.
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
 /// The payload a handler receives: task input plus run context.
 #[derive(Debug, Clone)]
 pub struct TaskContext<'a> {
@@ -36,6 +62,15 @@ pub struct TaskContext<'a> {
     pub input: &'a Json,
     /// Attempt number (1-based) of the current try.
     pub attempt: u32,
+    /// Cooperative cancellation token.
+    pub cancel_token: CancellationToken,
+}
+
+impl<'a> TaskContext<'a> {
+    /// Returns whether the task or its enclosing run has been cancelled.
+    pub fn is_cancelled(&self) -> bool {
+        self.cancel_token.is_cancelled()
+    }
 }
 
 /// The outcome of a single handler execution.
@@ -68,6 +103,14 @@ impl HandlerError {
     pub fn permanent(message: impl Into<String>) -> Self {
         Self {
             kind: FailureKind::Rejected,
+            message: message.into(),
+        }
+    }
+
+    /// Builds a cancellation handler error.
+    pub fn cancelled(message: impl Into<String>) -> Self {
+        Self {
+            kind: FailureKind::Cancelled,
             message: message.into(),
         }
     }
@@ -197,15 +240,23 @@ impl Default for DelayHandler {
 }
 
 impl Handler for DelayHandler {
-    fn execute(&self, _ctx: TaskContext<'_>) -> Result<HandlerResult, HandlerError> {
-        std::thread::sleep(std::time::Duration::from_millis(self.delay_ms));
+    fn execute(&self, ctx: TaskContext<'_>) -> Result<HandlerResult, HandlerError> {
+        let step = std::time::Duration::from_millis(5);
+        let total = std::time::Duration::from_millis(self.delay_ms);
+        let start = std::time::Instant::now();
+        while start.elapsed() < total {
+            if ctx.is_cancelled() {
+                return Err(HandlerError::cancelled("delay interrupted by cancellation"));
+            }
+            std::thread::sleep(step.min(total.saturating_sub(start.elapsed())));
+        }
         Ok(HandlerResult {
             output: json!({ "slept_ms": self.delay_ms }),
         })
     }
 
     fn description(&self) -> &'static str {
-        "succeeds after a fixed sleep"
+        "succeeds after a fixed sleep, supporting cancellation"
     }
 }
 
@@ -227,6 +278,7 @@ mod tests {
             task_name: "step",
             input: handler_input,
             attempt: 1,
+            cancel_token: CancellationToken::new(),
         }
     }
 
@@ -287,5 +339,24 @@ mod tests {
             FailureKind::TransientFailure
         );
         assert_eq!(HandlerError::permanent("x").kind, FailureKind::Rejected);
+        assert_eq!(HandlerError::cancelled("x").kind, FailureKind::Cancelled);
+    }
+
+    #[test]
+    fn cancellation_token_cancels_delay_handler() {
+        let token = CancellationToken::new();
+        let token_clone = token.clone();
+        let mut context = ctx(&json!(null));
+        context.cancel_token = token;
+
+        let thread = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(15));
+            token_clone.cancel();
+        });
+
+        let handler = DelayHandler { delay_ms: 200 };
+        let err = handler.execute(context).unwrap_err();
+        assert_eq!(err.kind, FailureKind::Cancelled);
+        let _ = thread.join();
     }
 }

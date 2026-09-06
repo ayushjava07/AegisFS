@@ -25,7 +25,9 @@ use crate::domain::status::{FailureKind, RunStatus, TaskStatus};
 use crate::domain::workflow::WorkflowDef;
 use crate::error::StorageError as StoreError;
 use crate::persistence::Store;
-use crate::plugins::handler::{HandlerError, HandlerResult, Registry, TaskContext};
+use crate::plugins::handler::{
+    CancellationToken, HandlerError, HandlerResult, Registry, TaskContext,
+};
 use crate::state::{run_fsm, task_fsm};
 
 use super::pick;
@@ -143,7 +145,16 @@ impl<'a> RunExecutor<'a> {
             .map_err(|_| ExecutorError::DefinitionLost(run_id.to_owned()))?;
 
         // The dispatcher already transitioned Queued -> Running.
+        // Re-read run status: if cancelled between queue claim and attempt, bail early.
         if run.status != RunStatus::Running {
+            if run.status == RunStatus::Cancelled {
+                return Ok(AttemptOutcome {
+                    run_status: RunStatus::Cancelled,
+                    failed_tasks: vec![],
+                    action: RunAction::Ack,
+                    error: run.error.clone(),
+                });
+            }
             return Err(ExecutorError::Invariant(format!(
                 "run {run_id} is {} on attempt; expected Running",
                 run.status
@@ -180,8 +191,22 @@ impl<'a> RunExecutor<'a> {
         // attempt (it becomes `Failed` in `states`, which the picker would
         // otherwise treat as ready again on the next loop iteration).
         let mut executed_this_attempt: BTreeSet<String> = BTreeSet::new();
+        let cancel_token = CancellationToken::new();
 
         loop {
+            // Check if the run was cancelled by an operator during attempt execution.
+            if let Ok(current_run) = self.store.get_run(&run_id_obj) {
+                if current_run.status == RunStatus::Cancelled {
+                    cancel_token.cancel();
+                    return Ok(AttemptOutcome {
+                        run_status: RunStatus::Cancelled,
+                        failed_tasks: vec![],
+                        action: RunAction::Ack,
+                        error: current_run.error,
+                    });
+                }
+            }
+
             let ready = pick::ready_tasks(&def.def, &states)
                 .into_iter()
                 .filter(|name| !executed_this_attempt.contains(name))
@@ -226,6 +251,7 @@ impl<'a> RunExecutor<'a> {
                     task_name: &name,
                     input: &task.input,
                     attempt: tr.attempts,
+                    cancel_token: cancel_token.clone(),
                 };
 
                 match self.run_handler(&task.handler, &name, ctx) {
