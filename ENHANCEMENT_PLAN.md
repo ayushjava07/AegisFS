@@ -151,3 +151,4 @@ a2e6c5c | phase 4 | gate: PASS | test(boundary): add comprehensive boundary-cond
 1a6c5a5 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-002 for multi-tenant run sequence isolation
 d6a175d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-003 for timed-out run re-queue clamping
 d9d4533 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-004 for pre-execution cancellation check
+38d4939 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-005 for terminal run release guard
