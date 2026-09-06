@@ -75,6 +75,11 @@ This document details the architectural design, subsystems, concurrency model, a
 ### 1.6 Artifact Storage (`src/storage/`)
 - **Content-Addressable Storage (CAS)**: Deduplicated blob storage where objects are addressed by their SHA-256 digests.
 - **Sharded Layout**: Hex-prefix sharded directory structures avoiding single-directory filesystem performance degradation.
+- **Garbage Collection Daemon (`src/storage/gc.rs`)**: Automated retention sweeper that reclaims aged blobs while preserving active run references and operator-pinned artifacts.
+
+### 1.7 Engine & Simulation (`src/engine/`)
+- **Expression Evaluation (`src/engine/expr.rs`)**: Template variable interpolation, string templating, and boolean expression guards.
+- **Static Simulation Engine (`src/engine/dry_run.rs`)**: Pre-flight workflow analysis decomposing DAGs into parallel execution tiers, calculating critical paths, and validating template variable reachability.
 
 ---
 

@@ -67,6 +67,8 @@ SUBCOMMANDS:
     status      Fetch current status and task progress of a workflow run
     cancel      Cancel a queued or running workflow run
     list        List workflows or historical runs with filtering
+    dry-run     Statically simulate and analyze a workflow DAG without running it
+    stats       Display real-time control plane health and execution telemetry
     validate    Statically validate a workflow specification document
     migrate     Apply pending schema migrations to SQLite store
     export      Export run execution history to JSON or NDJSON

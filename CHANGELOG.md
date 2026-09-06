@@ -38,7 +38,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Multi-backend integration tests for concurrency contention, cascade deletion, and multi-tenant isolation.
   - Standalone fuzzing harness (`fuzz/`) with targets for CLI parsing, query filters, and tags deserialization.
   - Formal Loom concurrency models for lock-free lease acquisition and cache races.
+- **Static Simulation & Diagnostics**:
+  - `DryRunEngine` with topological stage decomposition, critical path analysis, and template reference reachability checking.
+  - `runvane dry-run` CLI command rendering ASCII stage diagrams or structured JSON simulation reports.
+  - `runvane stats` CLI command querying live control plane health, queue latency, and run status distributions.
+- **Content-Addressable Artifact Retention Daemon**:
+  - `ArtifactGc` worker for automated retention cleanup of expired blobs with active reference preservation and dry-run support.
+- **Enriched HTML/SVG Dashboard**:
+  - Dynamic SVG run distribution bar, responsive telemetry cards, and status badge styling.
+- **End-to-End Orchestration Suite**:
+  - Multi-tier diamond DAG execution, CAS artifact deduplication, tenant concurrency throttling, and fan-out/fan-in verification.
 - **Benchmark Suite**:
   - Tagged `golden-baseline` clean release commit.
-  - 28 packaged benchmark tasks (`internal-bench/tasks/RV-001` through `RV-028`) with `task.yaml`, `instructions.md`, `defect.patch`, `solution.patch`, and `test_patch.diff`.
+  - 33 packaged benchmark tasks (`internal-bench/tasks/RV-001` through `RV-033`) with `task.yaml`, `instructions.md`, `defect.patch`, `solution.patch`, and `test_patch.diff`.
   - Comprehensive defect taxonomy documented in `internal-bench/defects.yaml`.
