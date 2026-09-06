@@ -1,0 +1,8 @@
+id: RV-028
+category: validation
+subsystem: api
+title: "Enforce MAX_RUN_INPUT_BYTES size ceiling in validate_run_input"
+description: "Run submission input validation checks JSON shape but does not enforce maximum payload byte size, allowing memory ballooning."
+base_commit: golden-baseline
+test_command: "cargo test --lib domain::validation::tests"
+status: ready

@@ -1,0 +1,12 @@
+diff --git a/src/domain/validation.rs b/src/domain/validation.rs
+index 7a6c9e0..8e4b2d1 100644
+--- a/src/domain/validation.rs
++++ b/src/domain/validation.rs
+@@ -153,2 +153,7 @@ pub fn validate_run_input(input: &Json) -> Result<(), DomainError> {
++    let size = json_size(input);
++    if size > MAX_RUN_INPUT_BYTES {
++        return Err(DomainError::InputTooLarge {
++            size,
++            cap: MAX_RUN_INPUT_BYTES,
++        });
++    }

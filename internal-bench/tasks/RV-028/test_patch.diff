@@ -1,0 +1,13 @@
+diff --git a/src/domain/validation.rs b/src/domain/validation.rs
+index 3a4b5c6..7d8e9f0 100644
+--- a/src/domain/validation.rs
++++ b/src/domain/validation.rs
+@@ -340,6 +340,14 @@ mod tests {
++    #[test]
++    // [F2P] RV-028 witness (oversized input payload rejected with InputTooLarge)
++    fn oversized_input_payload_rejected() {
++        let big_str = "x".repeat(MAX_RUN_INPUT_BYTES + 10);
++        let val = serde_json::json!({ "data": big_str });
++        let res = validate_run_input(&val);
++        assert!(matches!(res, Err(DomainError::InputTooLarge { .. })));
++    }
