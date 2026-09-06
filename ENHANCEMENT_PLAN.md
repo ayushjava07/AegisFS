@@ -160,3 +160,4 @@ f917964 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 e726229 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-011 for event watcher deduplication
 12cb8ef | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-012 for clock source propagation in leases
 4829f17 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-013 for LRU store tenant compound keys
+1441d86 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-014 for version-bump cache invalidation
