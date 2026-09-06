@@ -24,7 +24,7 @@ use crate::domain::run::{Run, RunError, TaskRun};
 use crate::domain::status::{FailureKind, RunStatus, TaskStatus};
 use crate::domain::workflow::WorkflowDef;
 use crate::error::StorageError as StoreError;
-use crate::persistence::Store;
+use crate::persistence::{ClaimToken, Store};
 use crate::plugins::handler::{
     CancellationToken, HandlerError, HandlerResult, Registry, TaskContext,
 };
