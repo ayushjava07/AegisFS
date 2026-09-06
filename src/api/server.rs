@@ -127,7 +127,7 @@ fn check_auth(
     ))
 }
 
-/// `GET /` — a minimal read-only overview rendered inline (no assets).
+/// `GET /` — a rich read-only overview rendered inline with telemetry gauges and SVG status distribution.
 async fn dashboard(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     use std::fmt::Write;
 
@@ -138,20 +138,104 @@ async fn dashboard(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let summaries = state.store.list_workflow_summaries().unwrap_or_default();
     let now_ms = state.clock.now_ms();
     let uptime_s = (now_ms - state.boot_ms).max(0) / 1000;
+    let queue_depth = state.store.len_queue();
+
+    let mut succeeded_count = 0usize;
+    let mut running_count = 0usize;
+    let mut queued_count = 0usize;
+    let mut failed_count = 0usize;
+
+    for r in &runs {
+        match r.status {
+            crate::domain::status::RunStatus::Succeeded => succeeded_count += 1,
+            crate::domain::status::RunStatus::Running => running_count += 1,
+            crate::domain::status::RunStatus::Queued => queued_count += 1,
+            _ => failed_count += 1,
+        }
+    }
+
+    let total_runs = runs.len();
 
     let mut html = String::new();
-    let _ = write!(html, "<!doctype html><html><head><title>runvane</title>");
     let _ = write!(
         html,
-        "<style>body{{font:14px/1.5 -apple-system,sans-serif;max-width:960px;margin:2rem auto;padding:0 1rem}}table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #ddd;padding:.4rem;text-align:left}}</style></head><body>"
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>runvane control plane</title>"
     );
     let _ = write!(
         html,
-        "<h1>runvane</h1><p>v{} &middot; uptime {}s &middot; queue depth {}</p>",
+        "<style>\
+        body{{font:14px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;max-width:1040px;margin:2rem auto;padding:0 1rem;background:#f8fafc;color:#0f172a}}\
+        h1{{font-size:1.75rem;margin-bottom:0.25rem}}\
+        .subtitle{{color:#64748b;font-size:0.9rem;margin-bottom:1.5rem}}\
+        .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem}}\
+        .card{{background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:1rem}}\
+        .card-num{{font-size:1.5rem;font-weight:700;color:#0f172a}}\
+        .card-lbl{{color:#64748b;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em}}\
+        .svg-bar{{margin:1.5rem 0;background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:1rem}}\
+        table{{border-collapse:collapse;width:100%;background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:1.5rem}}\
+        th,td{{border-bottom:1px solid #e2e8f0;padding:0.6rem 0.8rem;text-align:left}}\
+        th{{background:#f1f5f9;font-size:0.8rem;text-transform:uppercase;color:#475569}}\
+        code{{font-family:monospace;background:#f1f5f9;padding:0.1rem 0.3rem;border-radius:3px}}\
+        .badge{{padding:0.15rem 0.45rem;border-radius:4px;font-size:0.75rem;font-weight:600}}\
+        .succeeded{{background:#dcfce7;color:#166534}}\
+        .running{{background:#dbeafe;color:#1e40af}}\
+        .queued{{background:#fef9c3;color:#854d0e}}\
+        .failed{{background:#fee2e2;color:#991b1b}}\
+        footer{{color:#64748b;font-size:0.85rem;margin-top:2rem}}\
+        a{{color:#2563eb;text-decoration:none}}a:hover{{text-decoration:underline}}\
+        </style></head><body>"
+    );
+    let _ = write!(
+        html,
+        "<h1>runvane</h1><p class=\"subtitle\">v{} &middot; uptime {}s &middot; queue depth {}</p>",
         crate::telemetry::VERSION,
         uptime_s,
-        state.store.len_queue(),
+        queue_depth,
     );
+
+    // Metric cards grid
+    let _ = write!(
+        html,
+        "<div class=\"cards\">\
+        <div class=\"card\"><div class=\"card-num\">{}</div><div class=\"card-lbl\">Total Runs</div></div>\
+        <div class=\"card\"><div class=\"card-num\">{}</div><div class=\"card-lbl\">Queue Depth</div></div>\
+        <div class=\"card\"><div class=\"card-num\">{}</div><div class=\"card-lbl\">Workflows</div></div>\
+        <div class=\"card\"><div class=\"card-num\">{}s</div><div class=\"card-lbl\">Uptime</div></div>\
+        </div>",
+        total_runs, queue_depth, summaries.len(), uptime_s
+    );
+
+    // SVG State Distribution Bar
+    if total_runs > 0 {
+        let pct_s = (succeeded_count as f64 / total_runs as f64) * 100.0;
+        let pct_r = (running_count as f64 / total_runs as f64) * 100.0;
+        let pct_q = (queued_count as f64 / total_runs as f64) * 100.0;
+        let pct_f = (failed_count as f64 / total_runs as f64) * 100.0;
+
+        let w_s = (pct_s * 8.0).round().max(0.0);
+        let w_r = (pct_r * 8.0).round().max(0.0);
+        let w_q = (pct_q * 8.0).round().max(0.0);
+        let w_f = (pct_f * 8.0).round().max(0.0);
+
+        let x_r = w_s;
+        let x_q = x_r + w_r;
+        let x_f = x_q + w_q;
+
+        let _ = write!(
+            html,
+            "<div class=\"svg-bar\">\
+            <div style=\"font-weight:600;margin-bottom:0.5rem;font-size:0.85rem\">Run Distribution ({} Succeeded &middot; {} Running &middot; {} Queued &middot; {} Failed)</div>\
+            <svg width=\"100%\" height=\"20\" viewBox=\"0 0 800 20\" preserveAspectRatio=\"none\" style=\"border-radius:4px;overflow:hidden\">\
+            <rect x=\"0\" y=\"0\" width=\"{:.1}\" height=\"20\" fill=\"#22c55e\"/>\
+            <rect x=\"{:.1}\" y=\"0\" width=\"{:.1}\" height=\"20\" fill=\"#3b82f6\"/>\
+            <rect x=\"{:.1}\" y=\"0\" width=\"{:.1}\" height=\"20\" fill=\"#eab308\"/>\
+            <rect x=\"{:.1}\" y=\"0\" width=\"{:.1}\" height=\"20\" fill=\"#ef4444\"/>\
+            </svg></div>",
+            succeeded_count, running_count, queued_count, failed_count,
+            w_s, x_r, w_r, x_q, w_q, x_f, w_f
+        );
+    }
+
     let _ = write!(
         html,
         "<section><h2>workflows (run count)</h2><table><tr><th>name</th><th>runs</th></tr>"
@@ -164,18 +248,26 @@ async fn dashboard(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         );
     }
     let _ = write!(html, "</table></section>");
+
     let _ = write!(
         html,
         "<section><h2>recent runs</h2><table><tr><th>id</th><th>tenant/def</th><th>status</th><th>finished</th></tr>"
     );
     for run in runs {
         let finished = run.finished_at_ms.unwrap_or(run.created_at_ms);
+        let badge_class = match run.status {
+            crate::domain::status::RunStatus::Succeeded => "succeeded",
+            crate::domain::status::RunStatus::Running => "running",
+            crate::domain::status::RunStatus::Queued => "queued",
+            _ => "failed",
+        };
         let _ = write!(
             html,
-            "<tr><td><code>{}</code></td><td>{}/{}</td><td>{}</td><td>{}</td></tr>",
+            "<tr><td><code>{}</code></td><td>{}/{}</td><td><span class=\"badge {}\">{}</span></td><td>{}</td></tr>",
             run.id.as_str(),
             run.tenant,
             run.def_name,
+            badge_class,
             run.status,
             finished,
         );
@@ -183,7 +275,7 @@ async fn dashboard(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let _ = write!(html, "</table></section>");
     let _ = write!(
         html,
-        "<p><a href=\"/v1/debug/metrics\">metrics</a></p></body></html>"
+        "<footer><p><a href=\"/v1/debug/metrics\">metrics</a> &middot; <a href=\"/v1/health\">health</a></p></footer></body></html>"
     );
     (
         axum::http::StatusCode::OK,
