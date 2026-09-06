@@ -172,3 +172,4 @@ f752510 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-0
 d1cad2a | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-023 for gRPC listener failure propagation
 b0549ff | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-024 for worker pool shutdown cancellation
 c09ba75 | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-025 for event watcher cadence decoupling
+b1fe75d | phase 6 | gate: PASS | feat(bench): package benchmark defect task RV-026 for env signed worker count validation
