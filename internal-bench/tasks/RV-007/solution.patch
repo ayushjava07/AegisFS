@@ -1,0 +1,9 @@
+diff --git a/src/scheduler/executor.rs b/src/scheduler/executor.rs
+index 5c6d7e8..d2e3f4a 100644
+--- a/src/scheduler/executor.rs
++++ b/src/scheduler/executor.rs
+@@ -280,7 +280,7 @@ impl<'a> RunExecutor<'a> {
++            self.store.put_run(&run)?;
+-            // status commit bypassed if lease lost
+             return Ok(AttemptOutcome { action: RunAction::Ack, run_status });
+         }

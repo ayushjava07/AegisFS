@@ -1,0 +1,8 @@
+id: RV-007
+category: resource_mgmt
+subsystem: scheduler
+title: "Persist terminal run status across racing lease expiry"
+description: "When lease expiry races against run ack, swallowing NotFound causes workers to drop terminal status updates, leaving runs stranded in Running."
+base_commit: golden-baseline
+test_command: "cargo test --lib scheduler::tests"
+status: ready

@@ -1,0 +1,12 @@
+diff --git a/src/scheduler/tests.rs b/src/scheduler/tests.rs
+index a1b2c3d..9e0f1a2 100644
+--- a/src/scheduler/tests.rs
++++ b/src/scheduler/tests.rs
+@@ -530,6 +530,11 @@ fn attempt_renews_lease_heartbeat_across_multi_task_execution() {
+     assert_eq!(outcome.run_status, RunStatus::Succeeded);
++
++    // [F2P] RV-007 witness (terminal status persisted even if lease expired)
++    let run = store.get_run(&rid).unwrap();
++    assert_eq!(run.status, RunStatus::Succeeded);
++    assert!(run.finished_at_ms.is_some());
+ }
