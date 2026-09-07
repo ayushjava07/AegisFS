@@ -23,6 +23,15 @@ impl Shell {
     }
 }
 
+impl std::str::FromStr for Shell {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::parse(s)
+            .ok_or_else(|| format!("unsupported shell: '{s}'. Supported shells: bash, zsh, fish"))
+    }
+}
+
 /// Generates shell autocompletion script for the specified shell.
 pub fn generate_completion(shell: Shell) -> String {
     match shell {
