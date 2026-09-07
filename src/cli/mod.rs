@@ -15,6 +15,7 @@ use crate::error::RunvaneError;
 use crate::{PRODUCT_TAGLINE, VERSION};
 
 pub mod client;
+pub mod completion;
 pub mod serve;
 
 /// Program-level arguments shared by every invocation.
@@ -56,6 +57,8 @@ pub enum Command {
     DryRun(DryRunArgs),
     /// Display real-time control plane health and execution telemetry.
     Stats(StatsArgs),
+    /// Generate shell autocompletion script for bash, zsh, or fish.
+    Completion(CompletionArgs),
     /// Print product/build info.
     Version,
 }
@@ -202,6 +205,14 @@ pub struct StatsArgs {
     pub format: String,
 }
 
+/// `runvane completion` arguments.
+#[derive(Debug, Clone, Args)]
+pub struct CompletionArgs {
+    /// Target shell (`bash`, `zsh`, or `fish`).
+    #[arg(value_name = "SHELL")]
+    pub shell: String,
+}
+
 impl Cli {
     /// Parses argv without exiting (testable) — the clap top-level entry for
     /// `main`.
@@ -224,6 +235,7 @@ pub async fn execute(cli: &Cli) -> Result<(), RunvaneError> {
         Command::Runs(runs) => run_commands(cli, runs).await,
         Command::DryRun(args) => dry_run(args),
         Command::Stats(args) => stats_command(cli, args).await,
+        Command::Completion(args) => completion_command(args),
         Command::Version => {
             println!("{} {VERSION} — {PRODUCT_TAGLINE}", crate::PRODUCT_NAME);
             Ok(())
@@ -463,6 +475,19 @@ async fn stats_command(cli: &Cli, args: &StatsArgs) -> Result<(), RunvaneError> 
         println!("  - Failed:    {}", failed);
     }
     Ok(())
+}
+
+fn completion_command(args: &CompletionArgs) -> Result<(), RunvaneError> {
+    match completion::Shell::parse(&args.shell) {
+        Some(sh) => {
+            print!("{}", completion::generate_completion(sh));
+            Ok(())
+        }
+        None => Err(RunvaneError::Config(format!(
+            "unsupported shell '{}'; expected 'bash', 'zsh', or 'fish'",
+            args.shell
+        ))),
+    }
 }
 
 /// Turns a JSON-file definition payload into the proto spec, sending free-form
@@ -825,5 +850,15 @@ mod tests {
         execute(&cli_json).await.unwrap();
 
         handle.abort();
+    }
+
+    #[tokio::test]
+    async fn completion_cli_generation() {
+        for shell in ["bash", "zsh", "fish"] {
+            let cli = parse(&["completion", shell]).unwrap();
+            execute(&cli).await.unwrap();
+        }
+        let bad = parse(&["completion", "unsupported"]).unwrap();
+        assert!(execute(&bad).await.is_err());
     }
 }
