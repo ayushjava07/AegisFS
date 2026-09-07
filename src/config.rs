@@ -332,6 +332,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-027 witness (unknown top-level keys must stay rejected).
     fn unknown_keys_fail_loudly() {
         let err = Config::from_toml_str("hst = \"oops\"\nhttp_pott = 1\n").unwrap_err();
         assert!(
@@ -350,6 +351,8 @@ mod tests {
     }
 
     #[test]
+    // [F2P] RV-026 witness (negative durations/ports are rejected; a
+    // config coercion regression would accept them).
     fn validation_rejects_zero_ports_and_nonpositive_durations() {
         let mut bad = Config::defaults();
         bad.http_port = 0;
@@ -405,6 +408,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-026 witness (bad env values remain typed errors in both states).
     fn env_bad_value_is_a_typed_error() {
         let mut env = BTreeMap::new();
         env.insert("RUNVANE_HTTP_PORT".to_owned(), "not-a-port".to_owned());

@@ -290,6 +290,7 @@ mod tests {
     /// Retention deletes only terminal runs older than the cutoff and never
     /// touches in-flight or fresh finished runs.
     #[test]
+    // [P2P] RV-033 witness (retention pass purges old terminals in both states).
     fn retention_reaps_only_stale_terminal_runs() {
         let store = new_memory();
         let mut stale = crate::persistence::fixtures::run(

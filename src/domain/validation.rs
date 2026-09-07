@@ -304,6 +304,7 @@ mod tests {
     }
 
     #[test]
+    // [P2P] RV-028 witness (hook URL validation stays strict on both sides).
     fn bad_hook_url_rejected() {
         let mut def = base_def();
         def.hooks.on_success = vec![HookSpec {

@@ -705,6 +705,7 @@ mod tests {
     }
 
     #[tokio::test]
+    // [P2P] RV-018/019 witness (grpc status codes map stably across fixes).
     async fn error_codes_map_to_tonic_statuses() {
         let (mut client, handle) = client().await;
 

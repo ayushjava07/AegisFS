@@ -9,6 +9,11 @@
 //! randomized scheduler.
 //!
 //! Gate: `cargo test --features loom` on x86_64/aarch64 hosts.
+//!
+//! [P2P] RV-009 witnesses (all three loom models pass on both states):
+//!   - concurrent_claim_has_a_single_winner
+//!   - foreign_lease_is_never_stolen_and_ack_is_holder_guarded
+//!   - expired_lease_is_reclaimable
 #![cfg(test)]
 
 use loom::sync::{Arc, Mutex};

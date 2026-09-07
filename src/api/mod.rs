@@ -25,6 +25,7 @@ mod tests {
     use super::*;
 
     #[test]
+    // [P2P] RV-020/022 witness (spec_version byte never drifts).
     fn envelope_spec_version_stable() {
         let e = Envelope::of(42);
         assert_eq!(e.spec_version, 1);
