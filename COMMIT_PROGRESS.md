@@ -12,8 +12,8 @@ This register records the commit increments and milestones tracking toward the ~
 | **Batch 1** | Commit Roadmap & Progress Tracking Setup (`COMMIT_PLAN.md`, `COMMIT_PROGRESS.md`) | 191 | Clean | Verified |
 | **Batch 2** | Production Reference Workflows & Automated Schema Validation Suite | 194 | Clean | Verified |
 | **Batch 3** | Comprehensive Reference Configuration & Shell Completion Subsystem | 198 | Clean | Verified |
-| **Batch 4** | Minimal Multi-Stage Containerization & Automated Benchmark Harness | 201 | Clean | In Progress |
-| **Batch 5** | History Audit, Production Runbooks & Final Repository Release Stabilization | 204 | Clean | Pending |
+| **Batch 4** | Minimal Multi-Stage Containerization & Automated Benchmark Harness | 201 | Clean | Verified |
+| **Batch 5** | History Audit, Production Runbooks & Final Repository Release Stabilization | 204 | Clean | In Progress |
 
 ---
 
@@ -28,6 +28,9 @@ This register records the commit increments and milestones tracking toward the ~
 - **Commit 196**: `feat(cli): add completion subcommand for bash, zsh, and fish shell autocompletion` (`src/cli/completion.rs`, `src/cli/mod.rs`)
 - **Commit 197**: `test(cli): add integration test suite for shell completion generation and parsing` (`tests/cli_completion.rs`)
 - **Commit 198**: `docs(progress): record completion feature and reference configuration in progress tracker`
+- **Commit 199**: `feat(docker): add multi-stage minimal containerfile and docker-compose setup` (`Dockerfile`, `docker-compose.yml`, `.dockerignore`)
+- **Commit 200**: `feat(scripts): add automated benchmark task verification harness` (`scripts/verify_benchmarks.sh`)
+- **Commit 201**: `docs(progress): record containerization and benchmark harness in progress tracker`
 
 ---
 
