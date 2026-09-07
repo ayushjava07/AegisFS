@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.1] - 2026-09-08
+
+### Added
+- **Shell Autocompletion**:
+  - Direct script generation for Bash (`_runvane`), Zsh (`#compdef runvane`), and Fish (`complete -c runvane`) shells via `runvane completion <shell>`.
+  - Added CLI completion integration and parser unit test suites.
+- **Production Reference Workflows**:
+  - Validated sample DAG workflows in `examples/workflows/` covering ETL data pipelines, incident triage, and distributed ML model training.
+  - Automated schema validation test in `tests/examples_validation.rs`.
+- **Reference Configuration**:
+  - Documented production configuration template `config/runvane.example.toml` covering network bindings, worker concurrency, SQLite WAL storage, and authorization tokens.
+- **Containerization & Deployment**:
+  - Multi-stage minimal `Dockerfile` with build caching and unprivileged execution user.
+  - Production `docker-compose.yml` orchestrating local database persistence and healthchecks.
+- **Automated Benchmark Task Verification**:
+  - Continuous validation test harness `scripts/verify_benchmarks.sh` verifying all 33 benchmark task bundles (`task.yaml`, `instructions.md`, patches).
+- **Release Documentation & Roadmap**:
+  - Development roadmap `COMMIT_PLAN.md`, batch progress register `COMMIT_PROGRESS.md`, and comprehensive history audit `HISTORY_AUDIT.md`.
+
+---
+
 ## [0.1.0] - 2026-09-06
 
 ### Added

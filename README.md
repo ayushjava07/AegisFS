@@ -69,12 +69,48 @@ SUBCOMMANDS:
     list        List workflows or historical runs with filtering
     dry-run     Statically simulate and analyze a workflow DAG without running it
     stats       Display real-time control plane health and execution telemetry
+    completion  Generate shell autocompletion script (bash, zsh, fish)
     validate    Statically validate a workflow specification document
     migrate     Apply pending schema migrations to SQLite store
     export      Export run execution history to JSON or NDJSON
     replay      Replay an execution run against updated definitions
     help        Print help information
 ```
+
+### Shell Autocompletion
+
+Runvane can generate completion scripts for your shell:
+
+```bash
+# Bash
+source <(runvane completion bash)
+
+# Zsh
+runvane completion zsh > ~/.zfunc/_runvane
+
+# Fish
+runvane completion fish > ~/.config/fish/completions/runvane.fish
+```
+
+---
+
+## Deployment & Containerization
+
+A multi-stage containerfile and compose setup are provided for containerized deployments:
+
+```bash
+# Build and run control plane with Docker Compose
+docker compose up -d
+
+# Check service health
+curl -f http://localhost:8080/health
+```
+
+Configuration templates are available in [`config/runvane.example.toml`](config/runvane.example.toml).
+Reference workflow definitions are provided under [`examples/workflows/`](examples/workflows/):
+- `data_pipeline.json`: ETL diamond DAG with partition extraction and aggregation.
+- `incident_response.json`: Alert triage, diagnostic gathering, and notification flow.
+- `ml_training.json`: Distributed training pipeline with model evaluation and artifact publishing.
 
 ---
 
@@ -87,6 +123,16 @@ Runvane includes an 8-category test suite:
 - **Boundary Tests**: Payload size ceilings, JSON recursion depth, timeout boundaries, and pagination limits.
 - **Concurrency Verification**: Loom model checking for lock-free claims and cache invalidations.
 - **Fuzzing Harness**: Independent libFuzzer targets in `fuzz/` covering parsers, filters, and wire inputs.
+- **Examples Validation**: Automated JSON schema and dependency graph validation (`tests/examples_validation.rs`).
+- **Shell Completion Tests**: Syntax and parameter consistency checking (`tests/cli_completion.rs`).
+
+Run all tests and lint checks:
+```bash
+cargo fmt --check
+cargo clippy --all-targets --workspace -- -D warnings
+cargo test --workspace
+./scripts/verify_benchmarks.sh
+```
 
 ---
 
@@ -100,6 +146,21 @@ This repository includes benchmark evaluation tasks structured under `internal-b
   - `defect.patch`: Cleanly reversible defect injection patch.
   - `solution.patch`: Golden baseline fix patch.
   - `test_patch.diff`: Fail-to-pass witness test patch.
+
+To verify the integrity and schema of all 33 benchmark packages:
+```bash
+./scripts/verify_benchmarks.sh
+```
+
+---
+
+## Repository Documentation
+
+- [`COMMIT_PLAN.md`](COMMIT_PLAN.md): Development roadmap and milestone progression.
+- [`COMMIT_PROGRESS.md`](COMMIT_PROGRESS.md): Batch progress tracking register.
+- [`HISTORY_AUDIT.md`](HISTORY_AUDIT.md): Comprehensive repository development and history audit.
+- [`ARCHITECTURE.md`](ARCHITECTURE.md): High-level system architecture and component design.
+- [`CHANGELOG.md`](CHANGELOG.md): Version history and release notes.
 
 ---
 
