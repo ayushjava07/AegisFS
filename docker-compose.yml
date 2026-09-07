@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  runvane:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: runvane-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    volumes:
+      - runvane-data:/var/lib/runvane
+      - ./config/runvane.example.toml:/etc/runvane/runvane.toml:ro
+    environment:
+      - RUNVANE_HOST=0.0.0.0
+      - RUNVANE_HTTP_PORT=8080
+      - RUNVANE_GRPC_PORT=9090
+      - RUNVANE_WORKERS=8
+      - RUNVANE_LOG_FILTER=info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  runvane-data:
+    driver: local

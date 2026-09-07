@@ -1,0 +1,6 @@
+target/
+.git/
+.gemini/
+*.log
+data/
+*.tmp
