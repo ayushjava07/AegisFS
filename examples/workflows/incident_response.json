@@ -1,0 +1,45 @@
+{
+  "tenant": "sre-infra",
+  "name": "canary_auto_rollback",
+  "description": "Automated canary health assessment and mitigation workflow triggering rollbacks upon elevated error rates.",
+  "timeout_ms": 30000,
+  "default_priority": "High",
+  "retry": {
+    "max_attempts": 2,
+    "base_delay_ms": 100,
+    "max_delay_ms": 1000,
+    "multiplier": 2.0,
+    "backoff": "fixed",
+    "jitter": "none",
+    "retryable_only": false
+  },
+  "tasks": [
+    {
+      "name": "query_prometheus_slo",
+      "handler": "runvane.echo",
+      "input": {
+        "metric": "http_requests_5xx_rate",
+        "threshold": 0.01
+      },
+      "depends_on": []
+    },
+    {
+      "name": "drain_traffic_from_canary",
+      "handler": "runvane.echo",
+      "input": {
+        "cluster": "prod-us-east-1",
+        "weight": 0
+      },
+      "depends_on": ["query_prometheus_slo"]
+    },
+    {
+      "name": "dispatch_pagerduty_alert",
+      "handler": "runvane.echo",
+      "input": {
+        "severity": "critical",
+        "service": "checkout-api"
+      },
+      "depends_on": ["drain_traffic_from_canary"]
+    }
+  ]
+}

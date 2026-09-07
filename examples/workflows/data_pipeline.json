@@ -1,0 +1,54 @@
+{
+  "tenant": "data-platform",
+  "name": "ecommerce_daily_etl",
+  "description": "Daily ETL pipeline extracting transaction logs, computing aggregations in parallel, and publishing reporting metrics.",
+  "timeout_ms": 120000,
+  "default_priority": "High",
+  "retry": {
+    "max_attempts": 3,
+    "base_delay_ms": 200,
+    "max_delay_ms": 5000,
+    "multiplier": 2.0,
+    "backoff": "exponential",
+    "jitter": "full",
+    "retryable_only": true
+  },
+  "tasks": [
+    {
+      "name": "extract_raw_events",
+      "handler": "runvane.echo",
+      "input": {
+        "source": "s3://lakehouse/events/date=today",
+        "format": "parquet"
+      },
+      "depends_on": []
+    },
+    {
+      "name": "aggregate_user_metrics",
+      "handler": "runvane.echo",
+      "input": {
+        "upstream": "${tasks.extract_raw_events.output}",
+        "dimension": "user_id"
+      },
+      "depends_on": ["extract_raw_events"]
+    },
+    {
+      "name": "aggregate_sales_revenue",
+      "handler": "runvane.echo",
+      "input": {
+        "upstream": "${tasks.extract_raw_events.output}",
+        "dimension": "sku"
+      },
+      "depends_on": ["extract_raw_events"]
+    },
+    {
+      "name": "publish_bi_dashboard",
+      "handler": "runvane.echo",
+      "input": {
+        "users": "${tasks.aggregate_user_metrics.output}",
+        "sales": "${tasks.aggregate_sales_revenue.output}"
+      },
+      "depends_on": ["aggregate_user_metrics", "aggregate_sales_revenue"]
+    }
+  ]
+}

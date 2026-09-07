@@ -1,0 +1,64 @@
+{
+  "tenant": "ai-research",
+  "name": "distributed_model_eval",
+  "description": "Multi-partition ML model evaluation and benchmark aggregation with artifact storage checkpointing.",
+  "timeout_ms": 300000,
+  "default_priority": "Normal",
+  "retry": {
+    "max_attempts": 3,
+    "base_delay_ms": 500,
+    "max_delay_ms": 10000,
+    "multiplier": 2.0,
+    "backoff": "exponential",
+    "jitter": "full",
+    "retryable_only": true
+  },
+  "tasks": [
+    {
+      "name": "load_weights_and_dataset",
+      "handler": "runvane.echo",
+      "input": {
+        "model_id": "resnet50_v2",
+        "checkpoint": "s3://weights/epoch_100.ckpt"
+      },
+      "depends_on": []
+    },
+    {
+      "name": "eval_shard_0",
+      "handler": "runvane.echo",
+      "input": {
+        "weights": "${tasks.load_weights_and_dataset.output}",
+        "shard": 0
+      },
+      "depends_on": ["load_weights_and_dataset"]
+    },
+    {
+      "name": "eval_shard_1",
+      "handler": "runvane.echo",
+      "input": {
+        "weights": "${tasks.load_weights_and_dataset.output}",
+        "shard": 1
+      },
+      "depends_on": ["load_weights_and_dataset"]
+    },
+    {
+      "name": "eval_shard_2",
+      "handler": "runvane.echo",
+      "input": {
+        "weights": "${tasks.load_weights_and_dataset.output}",
+        "shard": 2
+      },
+      "depends_on": ["load_weights_and_dataset"]
+    },
+    {
+      "name": "compile_evaluation_metrics",
+      "handler": "runvane.echo",
+      "input": {
+        "shard_0": "${tasks.eval_shard_0.output}",
+        "shard_1": "${tasks.eval_shard_1.output}",
+        "shard_2": "${tasks.eval_shard_2.output}"
+      },
+      "depends_on": ["eval_shard_0", "eval_shard_1", "eval_shard_2"]
+    }
+  ]
+}
