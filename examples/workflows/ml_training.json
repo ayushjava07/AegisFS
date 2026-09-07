@@ -1,9 +1,9 @@
 {
   "tenant": "ai-research",
-  "name": "distributed_model_eval",
+  "name": "distributed-model-eval",
   "description": "Multi-partition ML model evaluation and benchmark aggregation with artifact storage checkpointing.",
   "timeout_ms": 300000,
-  "default_priority": "Normal",
+  "default_priority": "normal",
   "retry": {
     "max_attempts": 3,
     "base_delay_ms": 500,

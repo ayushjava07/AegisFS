@@ -1,9 +1,9 @@
 {
   "tenant": "data-platform",
-  "name": "ecommerce_daily_etl",
+  "name": "ecommerce-daily-etl",
   "description": "Daily ETL pipeline extracting transaction logs, computing aggregations in parallel, and publishing reporting metrics.",
   "timeout_ms": 120000,
-  "default_priority": "High",
+  "default_priority": "high",
   "retry": {
     "max_attempts": 3,
     "base_delay_ms": 200,

@@ -56,10 +56,12 @@ pub struct WorkflowSpec {
     /// The task graph; must not be empty.
     pub tasks: Vec<TaskSpecPayload>,
     /// Whole-workflow deadline measured from first dispatch.
+    #[serde(alias = "timeout_ms")]
     pub timeout_ms: Option<u64>,
     /// Default retry policy for tasks without their own override.
     pub retry: Option<RetryPolicy>,
     /// Default submission priority for new runs.
+    #[serde(alias = "default_priority")]
     pub default_priority: Option<Priority>,
     /// Completion hooks fired at run-lifecycle transitions.
     pub hooks: Option<Hooks>,
@@ -109,8 +111,10 @@ pub struct TaskSpecPayload {
     /// Static input passed to the handler.
     pub input: Option<Json>,
     /// Task names that must succeed first.
+    #[serde(alias = "depends_on")]
     pub depends_on: Option<Vec<String>>,
     /// Per-task timeout override.
+    #[serde(alias = "timeout_ms")]
     pub timeout_ms: Option<u64>,
     /// Per-task retry override.
     pub retry: Option<RetryPolicy>,
