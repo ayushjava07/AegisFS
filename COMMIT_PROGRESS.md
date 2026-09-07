@@ -10,7 +10,7 @@ This register records the commit increments and milestones tracking toward the ~
 |:---|:---|:---:|:---:|:---:|
 | **Baseline** | Initial repository inspection & author configuration | 189 | Clean | Verified |
 | **Batch 1** | Commit Roadmap & Progress Tracking Setup (`COMMIT_PLAN.md`, `COMMIT_PROGRESS.md`) | 191 | Clean | Verified |
-| **Batch 2** | Production Reference Workflows & Automated Schema Validation Suite | 194 | Clean | Verified |
+| **Batch 2** | Production Reference Workflows & Automated Schema Validation Suite | 193 | Clean | Verified |
 | **Batch 3** | Comprehensive Reference Configuration & Shell Completion Subsystem | 198 | Clean | Verified |
 | **Batch 4** | Minimal Multi-Stage Containerization & Automated Benchmark Harness | 201 | Clean | Verified |
 | **Batch 5** | History Audit, Production Runbooks & Final Repository Release Stabilization | 204 | Clean | Finalized |
