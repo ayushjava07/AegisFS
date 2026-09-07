@@ -1,0 +1,43 @@
+# Runvane Server Reference Configuration
+#
+# This file provides documented defaults and configuration options for
+# the Runvane distributed workflow orchestration platform.
+
+# Network bind host for HTTP and gRPC control planes
+host = "127.0.0.1"
+
+# Port for Axum HTTP/1.1 REST API and server-rendered status dashboard
+http_port = 8080
+
+# Port for Tonic gRPC API surface
+grpc_port = 9090
+
+# Worker pool execution concurrency (number of parallel task threads)
+workers = 8
+
+# Path to SQLite database file. Omit or leave unset to use in-memory store
+sqlite_path = "data/runvane.db"
+
+# Tracing and log filter directive (e.g. info, debug, runvane=trace)
+log_filter = "info"
+
+# Bearer token for general API authorization (operator read/write)
+# auth_token = "rv_live_secret_token_12345"
+
+# Separate bearer token with elevated privileges for admin operations
+# admin_token = "rv_admin_secret_key_67890"
+
+# Duration in milliseconds for which a worker holds an exclusive run lease
+lease_ms = 30000
+
+# Polling cadence in milliseconds for the background lease recovery reaper
+reap_interval_ms = 5000
+
+# Retention window in milliseconds before finished runs are eligible for reaping
+retention_ms = 604800000  # 7 days
+
+# Default maximum number of records returned by pagination queries
+default_list_limit = 50
+
+# Optional filesystem path for append-only audit trail logging
+# audit_log_path = "data/audit.log"
