@@ -35,19 +35,23 @@ pub fn check_run_consistency(
     tasks: &[(&str, TaskStatus)],
 ) -> Result<(), InvariantError> {
     let all_terminal = tasks.iter().all(|(_, s)| s.is_terminal());
+    let any_running = tasks.iter().any(|(_, s)| *s == TaskStatus::Running);
+
+    // A terminal failure must not leave a task Running.
+    if (run == RunStatus::Failed || run == RunStatus::TimedOut) && any_running {
+        let name = tasks
+            .iter()
+            .find(|(_, s)| *s == TaskStatus::Running)
+            .unwrap()
+            .0;
+        return Err(InvariantError::TerminalWithRunningTask((*name).to_owned()));
+    }
 
     // Succeeded requires every task terminal.
     if run == RunStatus::Succeeded {
-        if let Some((name, _)) = tasks.iter().find(|(_, s)| !s.is_terminal()) {
+        if !all_terminal {
+            let (name, _) = tasks.iter().find(|(_, s)| !s.is_terminal()).unwrap();
             return Err(InvariantError::SucceededWithNonTerminalTask((*name).to_owned()));
-        }
-        return Ok(());
-    }
-
-    // A terminal failure must not leave a task Running.
-    if run == RunStatus::Failed || run == RunStatus::TimedOut {
-        if let Some((name, _)) = tasks.iter().find(|(_, s)| *s == TaskStatus::Running) {
-            return Err(InvariantError::TerminalWithRunningTask((*name).to_owned()));
         }
         return Ok(());
     }
@@ -62,11 +66,16 @@ pub fn check_run_consistency(
         }
     }
 
-    // Skipped tasks require a failed dependency.
-    let has_failed = tasks.iter().any(|(_, s)| *s == TaskStatus::Failed);
-    if let Some((name, _)) = tasks.iter().find(|(_, s)| *s == TaskStatus::Skipped) {
-        if !has_failed {
-            return Err(InvariantError::SkippedWithoutFailedDependency((*name).to_owned()));
+    // Skipped tasks require a failed dependency — except when the run was
+    // cancelled by an operator (pending tasks are skipped without a failure).
+    let needs_failed_dep =
+        run == RunStatus::Failed || run == RunStatus::TimedOut || run == RunStatus::Succeeded;
+    if needs_failed_dep {
+        let has_failed = tasks.iter().any(|(_, s)| *s == TaskStatus::Failed);
+        if let Some((name, _)) = tasks.iter().find(|(_, s)| *s == TaskStatus::Skipped) {
+            if !has_failed {
+                return Err(InvariantError::SkippedWithoutFailedDependency((*name).to_owned()));
+            }
         }
     }
 
@@ -81,7 +90,7 @@ mod tests {
         TimedOut as RTO,
     };
     use crate::domain::status::TaskStatus::{
-        Failed as TFail, Pending as TPen, Running as TRun, Skipped as TSkip, Succeeded as TSuc,
+        Failed as TFail, Running as TRun, Skipped as TSkip, Succeeded as TSuc,
     };
 
     fn t<'a>(items: &'a [(&'a str, TaskStatus)]) -> Vec<(&'a str, TaskStatus)> {
@@ -141,7 +150,12 @@ mod tests {
     #[test]
     fn queued_run_with_no_tasks_is_fine() {
         assert!(check_run_consistency(RQue, &[]).is_ok());
+        // Operator cancellation skips pending tasks without a failed dependency.
         assert!(check_run_consistency(RCan, &[("a", TSkip)]).is_ok());
-        assert!(check_run_consistency(RTO, &[("a", TSkip)]).is_ok());
+        // A timed-out run with a skipped task and no failure is suspicious.
+        assert_eq!(
+            check_run_consistency(RTO, &[("a", TSkip)]),
+            Err(InvariantError::SkippedWithoutFailedDependency("a".into()))
+        );
     }
 }
