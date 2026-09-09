@@ -34,3 +34,6 @@ pub mod state;
 
 /// Top-level error types.
 pub mod error;
+
+/// Durable state and the run queue, with memory and SQLite backends.
+pub mod persistence;
