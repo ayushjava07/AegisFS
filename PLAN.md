@@ -76,6 +76,35 @@ every phase. Consulting it first is mandatory if the session is interrupted.
 - Production LOC (Rust, excl. tests/benches/fuzz): ~35 (scaffold only).
 - Deviations: see table at top.
 
+## Phase 2 status: IN PROGRESS
+
+Checkpoint framework for phase completion:
+
+- [x] Retry/backoff: seeded ChaCha8 `Backoff` (fixed/linear/exponential +
+      full/equal/none jitter), `RetryPlanner`, `FailureKind::retryable()`.
+- [x] Handler plugins: `Handler` trait, `TaskContext`, `HandlerResult`,
+      `HandlerError` (transient/permanent), `Registry` with built-ins
+      (`runvane.{noop,echo,fail,delay}`).
+- [x] Scheduler core: `pick` (ready set incl. failed-task retries, skipped
+      chain collapse), `executor` (attempt engine, run fsm `Running ->
+      Failed -> Queued` retry walk, run+task budgets, `RunAction`), `pool`
+      (scan/claim dispatcher + threaded `WorkerPool`, `SyncSender` bound
+      channel, ack/release driver applying claim tokens).
+- [x] E2E determinism: `ManualClock` + `MemoryStore` + seeded backoff;
+      linear success, parallel runs, retry-until-giveup, retry-then-succeed,
+      dependency-skip chain. No wall-clock dependence beyond bounded polling.
+
+Remaining in phase 2:
+
+- [ ] Deadlines: enforce `deadline_at_ms` (TimedOut) in dispatcher/executor;
+- [ ] Lease recovery wired to a maintenance pass (store primitive exists);
+- [ ] Events/notifications window to be brought forward only if needed for
+      the API phase; otherwise parked until Phase 5.
+
+Verified at this point: `cargo test --lib` = 128 passed (124 without the
+`sqlite` feature); `cargo clippy --all-targets` zero warnings.
+Commit count entering phase 2: 26.
+
 ## Phase 1 status: COMPLETE
 
 - Domain model, state machine, and persistence all landed and verified.

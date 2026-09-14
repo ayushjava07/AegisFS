@@ -37,3 +37,12 @@ pub mod error;
 
 /// Durable state and the run queue, with memory and SQLite backends.
 pub mod persistence;
+
+/// Retry/backoff computation.
+pub mod retry;
+
+/// Handler plugins (registry + built-ins).
+pub mod plugins;
+
+/// Scheduler: dispatcher, worker pool, run attempt executor.
+pub mod scheduler;
