@@ -7,6 +7,7 @@
 pub mod executor;
 pub mod pick;
 pub mod pool;
+pub mod reap;
 
 #[cfg(test)]
 mod tests;

@@ -396,6 +396,82 @@ fn flaky_run_retries_then_succeeds_within_budget() {
 }
 
 #[test]
+fn run_past_deadline_times_out_without_executing_tasks() {
+    let store = Arc::new(MemoryStore::default());
+    let clock = Arc::new(ManualClock::at(6_000_000));
+    let registry = Arc::new(Registry::new());
+    registry.register(
+        HandlerId::from_validated("testalways0000".to_owned()),
+        Flaky::always_fail(),
+    );
+
+    let def_name = "deadline0001";
+    store
+        .put_workflow(def(
+            "wf_deadline0001",
+            def_name,
+            vec![task("work", "testalways0000", &[])],
+            RetryPolicy::fixed(3, 25),
+        ))
+        .unwrap();
+
+    let rid = RunId::from_validated("rn_deadline0000000".to_owned());
+    let mut run = fixtures::run(
+        "rn_deadline0000000",
+        "tenant1",
+        def_name,
+        RunStatus::Queued,
+        clock.value(),
+    );
+    // Deadline lands after attempt #2's retry slot but before attempt #3.
+    run.deadline_at_ms = Some(clock.value() + 60);
+    store.put_run(&run).unwrap();
+    enqueue(store.as_ref(), &rid, clock.value());
+
+    let pool = WorkerPool::spawn(2, registry, store.clone(), clock.clone(), 9);
+    let dispatcher = Dispatcher::new(store.as_ref(), &*clock, pool, 8, 60_000);
+
+    // Attempt #1 fails, retry scheduled at +25ms.
+    assert_eq!(dispatcher.step().claimed, 1);
+    wait_settled(store.as_ref(), &rid);
+    let run = store.get_run(&rid).unwrap();
+    assert_eq!(run.status, RunStatus::Queued);
+    assert_eq!(run.next_attempt_at_ms, Some(6_000_025));
+
+    // Attempt #2 fails, retry scheduled at +50ms (still inside the deadline).
+    clock.set(6_000_025);
+    wait_ready(store.as_ref(), &clock, &rid);
+    assert_eq!(dispatcher.step().claimed, 1);
+    wait_settled(store.as_ref(), &rid);
+    let run = store.get_run(&rid).unwrap();
+    assert_eq!(run.status, RunStatus::Queued);
+    assert_eq!(run.next_attempt_at_ms, Some(6_000_050));
+
+    // Attempt #3 hits the past-deadline guard: time out, no task runs.
+    clock.set(6_000_070);
+    wait_ready(store.as_ref(), &clock, &rid);
+    assert_eq!(dispatcher.step().claimed, 1);
+    poll(
+        || run_status(store.as_ref(), &rid) == RunStatus::TimedOut,
+        "run to time out",
+    );
+
+    let run = store.get_run(&rid).unwrap();
+    assert_eq!(run.status, RunStatus::TimedOut);
+    let err = run.error.expect("timed out run carries an error");
+    assert_eq!(err.kind, crate::domain::status::FailureKind::Timeout);
+    assert!(err.message.contains("deadline"));
+    // The last dispatched attempt never executed its task.
+    let tasks = store.list_task_runs_for_run(&rid).unwrap();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0].attempts, 2);
+    assert_eq!(tasks[0].status, TaskStatus::Failed);
+    assert_eq!(store.len_queue(), 0);
+
+    dispatcher.into_pool().shutdown();
+}
+
+#[test]
 fn failed_dependency_skips_descendants_and_run_fails() {
     let store = Arc::new(MemoryStore::default());
     let clock = Arc::new(ManualClock::at(5_000_000));

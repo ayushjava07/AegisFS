@@ -93,15 +93,17 @@ Checkpoint framework for phase completion:
 - [x] E2E determinism: `ManualClock` + `MemoryStore` + seeded backoff;
       linear success, parallel runs, retry-until-giveup, retry-then-succeed,
       dependency-skip chain. No wall-clock dependence beyond bounded polling.
+- [x] Deadlines: `deadline_at_ms` enforced in the attempt engine (run walks
+      `Running -> TimedOut` without touching tasks when past deadline).
+- [x] Lease recovery: `scheduler::reap` maintenance pass over the store's
+      `recover_expired_leases`, un-leasing only lapsed leases.
 
 Remaining in phase 2:
 
-- [ ] Deadlines: enforce `deadline_at_ms` (TimedOut) in dispatcher/executor;
-- [ ] Lease recovery wired to a maintenance pass (store primitive exists);
-- [ ] Events/notifications window to be brought forward only if needed for
-      the API phase; otherwise parked until Phase 5.
+- [ ] Events/notifications window brought forward only if needed for the API
+      phase; otherwise parked until Phase 5.
 
-Verified at this point: `cargo test --lib` = 128 passed (124 without the
+Verified at this point: `cargo test --lib` = 130 passed (126 without the
 `sqlite` feature); `cargo clippy --all-targets` zero warnings.
 Commit count entering phase 2: 26.
 

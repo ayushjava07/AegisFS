@@ -152,6 +152,29 @@ impl<'a> RunExecutor<'a> {
             )));
         }
 
+        // Enforce the whole-run deadline before touching any task.
+        if run.deadline_at_ms.is_some_and(|d| self.clock.now_ms() > d) {
+            run_fsm::validate(RunStatus::Running, RunStatus::TimedOut)
+                .map_err(|e| ExecutorError::Invariant(e.to_string()))?;
+            let mut timed_out = run.clone();
+            timed_out.status = RunStatus::TimedOut;
+            timed_out.finished_at_ms = Some(self.clock.now_ms());
+            timed_out.error = Some(RunError {
+                message: format!("run {run_id} exceeded its deadline"),
+                kind: FailureKind::Timeout,
+                task: None,
+                depth: 0,
+                attempts: run.attempts,
+            });
+            self.store.put_run(&timed_out).map_err(ExecutorError::Store)?;
+            return Ok(AttemptOutcome {
+                run_status: RunStatus::TimedOut,
+                failed_tasks: vec![],
+                action: RunAction::Ack,
+                error: timed_out.error.clone(),
+            });
+        }
+
         let mut states = self.loaded_states(&run.id, &def.def);
         // Guards against re-executing a task that failed within this very
         // attempt (it becomes `Failed` in `states`, which the picker would
