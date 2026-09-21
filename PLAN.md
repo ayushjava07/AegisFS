@@ -22,7 +22,7 @@ every phase. Consulting it first is mandatory if the session is interrupted.
 |---|---|
 | 0 — design, scaffold, CI | complete |
 | 1 — domain + state machine + persistence | complete |
-| 2 — scheduler/worker pool/retry/backoff | in progress |
+| 2 — scheduler/worker pool/retry/backoff | complete |
 | 3 — HTTP + gRPC API | |
 | 4 — CLI + config layer | |
 | 5 — plugins + webhooks/events | |
@@ -76,7 +76,7 @@ every phase. Consulting it first is mandatory if the session is interrupted.
 - Production LOC (Rust, excl. tests/benches/fuzz): ~35 (scaffold only).
 - Deviations: see table at top.
 
-## Phase 2 status: IN PROGRESS
+## Phase 2 status: COMPLETE
 
 Checkpoint framework for phase completion:
 
@@ -106,6 +106,19 @@ Remaining in phase 2:
 Verified at this point: `cargo test --lib` = 130 passed (126 without the
 `sqlite` feature); `cargo clippy --all-targets` zero warnings.
 Commit count entering phase 2: 26.
+
+## Phase 2 status: COMPLETE
+
+- Retry/backoff, handler plugins, scheduler (pick/executor/pool), e2e
+  determinism, deadline enforcement, and lease reaping all landed.
+- Retry walk on the run machine: `Running -> Failed -> Queued`; failed tasks
+  are re-selected by the picker on later attempts and only while their own
+  budget remains; skip is sticky for already-skipped descendants.
+- Commit count at phase end: 29 (19 pre-existing + 10 build commits).
+- `cargo test --lib` = 130 passed (126 without `sqlite`); clippy clean.
+- Production LOC (cloc `src`, 37 Rust files, incl. test blocks):
+  5,480 code + 1,007 comment lines.
+- Deviations: see table at top.
 
 ## Phase 1 status: COMPLETE
 
