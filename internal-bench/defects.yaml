@@ -1,0 +1,56 @@
+# Defect catalogue — Runvane benchmark
+
+Tracking manifest for the Phase 10 defect injection exercise. This directory
+is deliberately part of the repo (internal tooling for the benchmark pack) but
+is excluded from anything handed to a task-solving agent as "the repo": the
+`instructions.md`, patches, and tests for any individual task reference only
+the golden tag and the single reverted commit.
+
+## Rules
+
+- 30-36 candidates; 25-30 must survive independence review.
+- One isolated, cleanly revertible commit per defect, on top of the golden tag.
+- Every candidate records: id, subsystem, category, mechanism, detection,
+  fix, independence check.
+- Categories and detection methods follow the table in `PLAN.md`.
+
+## Category budget
+
+| Category | Target |
+|---|---|
+| type_safety | 2 |
+| state_transition | 3 |
+| resource_mgmt | 3 |
+| concurrency | 4 |
+| stale_cache | 2 |
+| boundary | 3 |
+| error_propagation | 2 |
+| serialization | 3 |
+| lifecycle | 3 |
+| config | 2 |
+| validation | 3 |
+| leak | 3 |
+| **total** | **33** |
+
+## Candidates
+
+(This section is populated during Phase 10. Each entry is one YAML block.)
+
+```yaml
+# template:
+# - id: RV-001
+#   subsystem: scheduler
+#   category: concurrency
+#   mechanism: ""
+#   detection: ""
+#   fix: ""
+#   independence: ""
+```
+
+## Status legend
+
+- `draft` — brainstormed, not yet reviewed
+- `indep` — survives independence review (distinct root cause)
+- `dup` — duplicate of another entry (dropped or merged)
+- `injected` — reverted-commit installed on the branch
+- `packed` — Phase 11 bundle complete

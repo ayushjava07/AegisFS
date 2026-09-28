@@ -280,3 +280,20 @@ catalogue later.
   SQL backend to keep the suite fully offline and reproducible; the `Store`
   trait is backend-agnostic by design so a driver for Postgres can be layered
   on without touching domain code. Recorded as a deviation in `PLAN.md`.
+
+## Benchmark annex
+
+Runvane is built as source material for AI-agent benchmark tasks (see
+`PLAN.md` → "Benchmark-preparation engine"). Consequences:
+
+- The HTTP/gRPC/dashboard surfaces are designed so a meaningful subset of
+  injected defects has an operator-visible, screenshottable or transcriptable
+  symptom; internal-state defects fall back to captured failing-test output.
+- Regression tests destined for task packaging are tagged `[F2P]`/`[P2P]`
+  in Phase 8 while intent is fresh.
+- The defect manifest lives at `internal-bench/defects.yaml`, by construction
+  outside the production module tree (`src/`), so no task extraction ever
+  ships it to a solver.
+- Golden baseline semantics: the Phase-9 tag is the canonical all-fixed
+  reference; every Phase-10 defect is an isolated revertible commit on top of
+  it, so "broken" = golden minus its single revert.

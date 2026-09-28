@@ -56,6 +56,77 @@ every phase. Consulting it first is mandatory if the session is interrupted.
    package (NOT a workspace member) so `cd fuzz && cargo fuzz` drives it
    exactly as the tooling prefers; `benches/` stay inside the main package.
 
+## Benchmark-preparation engine (enhanced spec, folded in)
+
+The updated build prompt tightened the brief: explicit numeric gates, a
+defect-tracking manifest, and per-defect task packaging. This section is the
+operational summary; the Rust tooling below is settled by Deviation 1 plus the
+prompt's own "different language" swap table.
+
+### Numeric gates
+
+- Commits: `git log --oneline | wc -l` >= 150 at finish.
+- Production LOC: 32,000-40,000 first-party `src` lines (cloc, excluding
+  tests/benches/fuzz/generated), tracked per phase below.
+- Golden tag at Phase 9: zero known defects, all runs green.
+
+### Defect catalogue and packaging
+
+- Manifest: `internal-bench/defects.yaml` — tracked in-repo but kept out of
+  any task extraction by construction. Holds 30-36 candidates; 25-30 must
+  survive independence review as distinct root causes.
+- Each entry records: `id`, `subsystem`, `category`, `mechanism` (the precise
+  realistic mistake), `detection` (specific test/fuzz/tool run), `fix`, and an
+  `independence check` against every other entry.
+- Injection is one isolated, normally-worded, **cleanly revertible** commit
+  per defect on top of the golden tag; the golden tag is the all-fixed state.
+- Packaging (Phase 11) per surviving defect: broken state = golden minus that
+  one revert; solution patch = the fix diff; `instructions.md` describing the
+  operator-visible symptom (never the fix); >= 1 `[F2P]` regression test that
+  fails on broken/passes on fixed; >= 2 `[P2P]` tests passing in both states;
+  evidence = dashboard screenshot or captured terminal/log transcript.
+- Phase 8 adds the `[F2P]`/`[P2P]` markers to the intended tests now, while
+  intent is fresh, even though defects are not yet injected.
+
+### Category table (with Rust detection)
+
+| Category | Target | Detection in Rust |
+|---|---|---|
+| Type-safety mistakes | 2 | clippy + typed-id discipline + targeted unit tests |
+| Incorrect state transitions | 3 | state-machine table tests + property tests |
+| Resource-management problems | 3 | explicit close-path tests, RAII/drop audits |
+| Concurrency/race conditions | 4 | `cargo miri` + `loom` model checks + stress tests |
+| Stale-cache behavior | 2 | integration tests on the invalidation paths |
+| Boundary-condition errors | 3 | table-driven boundary tests + `cargo fuzz` |
+| Incorrect error propagation | 2 | `errors.Is/As`-style tests over typed errors |
+| Serialization inconsistencies | 3 | round-trip property tests (`proptest`) |
+| Lifecycle bugs | 3 | startup/shutdown/cancel integration tests |
+| Configuration mistakes | 2 | precedence tests (flag > env > file > default) |
+| Validation gaps | 3 | negative-case API/boundary tests |
+| Memory/resource leaks | 3 | explicit close-path + allocator/drop audits |
+
+Tools: mutation = `cargo-mutants` scoped per package (state machine, retry,
+validation) with a recorded mutation score; fuzz = `fuzz/` standalone crate
+(deviation 4) targeting every hand-written parser/decoder; leak = ownership
+model + explicit close-path harness.
+
+### Definition of done (checked at Phase 12)
+
+- [ ] `git log --oneline | wc -l` >= 150
+- [ ] cloc first-party `src` in 32,000-40,000
+- [ ] `cargo build` + `cargo test --lib` green on golden tag (both feature
+      sets)
+- [ ] `cargo clippy --all-targets` and `cargo fmt --check` clean
+- [ ] `cargo miri`/`loom` model checks clean where applicable
+- [ ] fuzz targets for every hand-written parser/decoder, local runs green
+- [ ] scoped `cargo-mutants` pass recorded with score
+- [ ] `internal-bench/defects.yaml` 30-36 candidates, 25-30 confirmed
+- [ ] every surviving defect isolated + cleanly revertible; >=1 `[F2P]` and
+      >=2 `[P2P]` tests; complete broken/fixed/patch/instructions/evidence
+      bundle
+- [ ] README/CONTRIBUTING/CHANGELOG/LICENSE consistent with commit history
+- [ ] no build/test step needs the network; no timing-flaky assertions
+
 ## Phase 0 notes
 
 - Decision: reset the source tree from the legacy aegisfs filesystem library
