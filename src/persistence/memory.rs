@@ -294,6 +294,24 @@ impl Store for MemoryStore {
         Ok(())
     }
 
+    fn cancel_run(&self, run_id: &RunId, now_ms: i64) -> Result<bool, StoreError> {
+        let mut guard = self.inner.lock();
+        let mut run = guard
+            .runs
+            .get(run_id)
+            .cloned()
+            .ok_or_else(|| StoreError::NotFound(format!("run {run_id}")))?;
+        if run.is_terminal() {
+            return Ok(false);
+        }
+        run.status = crate::domain::status::RunStatus::Cancelled;
+        run.finished_at_ms = Some(now_ms);
+        run.error = None;
+        guard.runs.insert(run_id.clone(), run);
+        guard.queue.remove(run_id);
+        Ok(true)
+    }
+
     fn recover_expired_leases(&self, now_ms: i64) -> Result<usize, StoreError> {
         let mut guard = self.inner.lock();
         let mut recovered = 0;

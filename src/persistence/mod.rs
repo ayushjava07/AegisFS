@@ -119,6 +119,13 @@ pub trait Store: Send + Sync {
     /// `scan_ready` again (used by maintenance and defect telemetry).
     fn failclaim(&self, run_id: &RunId, token: &ClaimToken) -> Result<(), StorageError>;
 
+    /// Transitions a non-terminal run to `Cancelled` and removes its queue
+    /// entry unconditionally (the operator-cancel path must not race a lease
+    /// holder). Returns `true` when a transition happened, `false` when the
+    /// run was already terminal. The store deliberately does not consult the
+    /// run machine; the caller validates the edge first.
+    fn cancel_run(&self, run_id: &RunId, now_ms: i64) -> Result<bool, StorageError>;
+
     /// Un-leases every entry whose lease has expired; returns how many.
     fn recover_expired_leases(&self, now_ms: i64) -> Result<usize, StorageError>;
 

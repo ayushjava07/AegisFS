@@ -446,6 +446,41 @@ impl Store for SqliteStore {
         Ok(())
     }
 
+    fn cancel_run(&self, run_id: &RunId, now_ms: i64) -> Result<bool, StorageError> {
+        let mut conn = self.conn.blocking_lock();
+        let tx = conn.transaction().map_err(backend_err)?;
+        let current: Option<Run> = tx
+            .query_row(
+                "SELECT document FROM runs WHERE id = ?1",
+                params![run_id.as_str()],
+                decode_run,
+            )
+            .optional()
+            .map_err(backend_err)?;
+        let Some(mut run) = current else {
+            return Err(not_found(format!("run {run_id}")));
+        };
+        if run.is_terminal() {
+            return Ok(false);
+        }
+        run.status = crate::domain::status::RunStatus::Cancelled;
+        run.finished_at_ms = Some(now_ms);
+        run.error = None;
+        let document = encode_json(&run)?;
+        tx.execute(
+            "UPDATE runs SET status = ?2, document = ?3 WHERE id = ?1",
+            params![run_id.as_str(), run.status.as_ref(), document],
+        )
+        .map_err(backend_err)?;
+        tx.execute(
+            "DELETE FROM queue_entries WHERE run_id = ?1",
+            params![run_id.as_str()],
+        )
+        .map_err(backend_err)?;
+        tx.commit().map_err(backend_err)?;
+        Ok(true)
+    }
+
     fn recover_expired_leases(&self, now_ms: i64) -> Result<usize, StorageError> {
         let conn = self.conn.blocking_lock();
         let changed = conn

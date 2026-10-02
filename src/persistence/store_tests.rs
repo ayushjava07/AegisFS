@@ -17,6 +17,77 @@ pub fn run_store_suite(store: &dyn Store) {
     run_number_increments(store);
     queue_lifecycle(store);
     queue_claimed_entry_hides_from_scan(store);
+    cancel_run_semantics(store);
+}
+
+/// Cancellation transitions non-terminal runs, drops the queue entry, and is
+/// idempotent-neutral for terminal runs (returns `false`, never rewrites).
+fn cancel_run_semantics(store: &dyn Store) {
+    // Queued run cancels and disappears from the queue.
+    let queued = fixtures::run("rn_c1", "acme", "ship", RunStatus::Queued, 100);
+    store.put_run(&queued).unwrap();
+    store
+        .enqueue(QueueEntry {
+            run_id: queued.id.clone(),
+            token: ClaimToken::empty(),
+            due_at_ms: 100,
+            lease_until_ms: None,
+            claimed_by: None,
+        })
+        .unwrap();
+    assert!(store.cancel_run(&queued.id, 250).unwrap());
+    let after = store.get_run(&queued.id).unwrap();
+    assert_eq!(after.status, RunStatus::Cancelled);
+    assert_eq!(after.finished_at_ms, Some(250));
+    // The queue entry is gone: re-enqueueing the same run no longer conflicts.
+    assert!(store
+        .enqueue(QueueEntry {
+            run_id: queued.id.clone(),
+            token: ClaimToken::empty(),
+            due_at_ms: 500,
+            lease_until_ms: None,
+            claimed_by: None,
+        })
+        .is_ok());
+
+    // Running run (lease holder present) cancels and its queue entry is gone.
+    let running = fixtures::run("rn_c2", "acme", "ship", RunStatus::Running, 100);
+    store.put_run(&running).unwrap();
+    store
+        .enqueue(QueueEntry {
+            run_id: running.id.clone(),
+            token: ClaimToken::new(),
+            due_at_ms: 100,
+            lease_until_ms: Some(1_000),
+            claimed_by: Some("dispatcher".into()),
+        })
+        .unwrap();
+    assert!(store.cancel_run(&running.id, 300).unwrap());
+    assert_eq!(store.get_run(&running.id).unwrap().status, RunStatus::Cancelled);
+    assert!(store
+        .enqueue(QueueEntry {
+            run_id: running.id.clone(),
+            token: ClaimToken::empty(),
+            due_at_ms: 600,
+            lease_until_ms: None,
+            claimed_by: None,
+        })
+        .is_ok());
+
+    // Terminal runs are left untouched.
+    let done = fixtures::run("rn_c3", "acme", "ship", RunStatus::Succeeded, 100);
+    store.put_run(&done).unwrap();
+    assert!(!store.cancel_run(&done.id, 400).unwrap());
+    let still = store.get_run(&done.id).unwrap();
+    assert_eq!(still.status, RunStatus::Succeeded);
+    assert_eq!(still.finished_at_ms, None);
+
+    // Unknown runs surface as NotFound.
+    let missing = crate::domain::ids::RunId::from_validated("rn_zzz".into());
+    assert!(matches!(
+        store.cancel_run(&missing, 0),
+        Err(StorageError::NotFound(_))
+    ));
 }
 
 fn workflow_roundtrip_and_version_guard(store: &dyn Store) {
