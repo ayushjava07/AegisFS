@@ -1,0 +1,133 @@
+// Runvane v1 API.
+//
+// The gRPC mirror of the HTTP v1 surface. Structured fields are the wire
+// inputs; every free-form JSON document (run input, tags, task metadata, and
+// the canonical `Workflow`/`Run` records returned by responses) travels as an
+// opaque `bytes` payload containing the exact same JSON the HTTP transport
+// returns, so the two transports stay in lockstep.
+
+syntax = "proto3";
+
+package runvane.v1;
+
+// The core service.
+service Runvane {
+  // Liveness + coarse queue depth.
+  rpc Health(HealthRequest) returns (HealthResponse);
+
+  // Create a workflow definition.
+  rpc CreateWorkflow(WorkflowSpec) returns (WorkflowResponse);
+
+  // List all workflow definitions (optionally scoped to a tenant).
+  rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse);
+
+  // Fetch a workflow definition by tenant/name.
+  rpc GetWorkflow(GetWorkflowRequest) returns (WorkflowResponse);
+
+  // Submit a run of a definition.
+  rpc SubmitRun(SubmitRunRequest) returns (RunResponse);
+
+  // Query runs by filters.
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+
+  // Fetch a run by id.
+  rpc GetRun(GetRunRequest) returns (RunResponse);
+
+  // Cancel an in-flight/queued run (best effort).
+  rpc CancelRun(CancelRunRequest) returns (RunResponse);
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+  int64 booted_at_ms = 2;
+  int64 now_ms = 3;
+  int64 queue_depth = 4;
+  uint32 spec_version = 5;
+}
+
+message WorkflowSpec {
+  string tenant = 1;
+  string name = 2;
+  string description = 3;
+  repeated TaskSpec tasks = 4;
+  uint64 timeout_ms = 5;
+  RetryPolicy retry = 6;
+  string default_priority = 7;
+  // Serialized JSON object of operator tags.
+  bytes tags_json = 8;
+}
+
+message TaskSpec {
+  string name = 1;
+  string handler = 2;
+  // Serialized JSON value of the task's static input.
+  bytes input_json = 3;
+  repeated string depends_on = 4;
+  uint64 timeout_ms = 5;
+  RetryPolicy retry = 6;
+  // Serialized JSON object of free-form metadata.
+  bytes meta_json = 7;
+}
+
+message RetryPolicy {
+  uint32 max_attempts = 1;
+  uint64 base_delay_ms = 2;
+  uint64 max_delay_ms = 3;
+  double multiplier = 4;
+  string backoff = 5;
+  string jitter = 6;
+  bool retryable_only = 7;
+}
+
+message ListWorkflowsRequest {
+  string tenant = 1;
+}
+
+message GetWorkflowRequest {
+  string tenant = 1;
+  string name = 2;
+}
+
+message WorkflowResponse {
+  // Serialized JSON of the canonical WorkflowDef document.
+  bytes definition_json = 1;
+}
+
+message ListWorkflowsResponse {
+  repeated bytes definition_json = 1;
+}
+
+message SubmitRunRequest {
+  string tenant = 1;
+  string name = 2;
+  // Serialized JSON value of the run input.
+  bytes input_json = 3;
+  // Serialized JSON object of operator tags.
+  bytes tags_json = 4;
+}
+
+message ListRunsRequest {
+  string tenant = 1;
+  string name = 2;
+  string status = 3;
+  uint32 limit = 4;
+}
+
+message GetRunRequest {
+  string id = 1;
+}
+
+message RunResponse {
+  // Serialized JSON of the canonical Run document.
+  bytes run_json = 1;
+}
+
+message CancelRunRequest {
+  string id = 1;
+}
+
+message ListRunsResponse {
+  repeated bytes run_json = 1;
+}

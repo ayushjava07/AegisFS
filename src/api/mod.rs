@@ -9,10 +9,12 @@
 #![warn(missing_docs)]
 
 pub mod error;
+pub mod grpc;
 pub mod payloads;
 pub mod server;
 
 pub use error::{ApiError, ErrorBody, ErrorDetail};
+pub use grpc::GrpcService;
 pub use payloads::{Envelope, HealthView, RunQuery, SubmitRunRequest, TaskSpecPayload, WorkflowSpec};
 pub use server::{AppState, build_router};
 

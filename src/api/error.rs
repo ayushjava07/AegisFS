@@ -10,6 +10,7 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde::Serialize;
 
+use crate::domain::error::DomainError;
 use crate::error::{RunvaneError, StorageError};
 
 /// Standard error body attached to non-2xx responses.
@@ -78,6 +79,16 @@ impl ApiError {
         Self::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", message)
     }
 
+    /// The HTTP status the error maps to.
+    pub fn http_status(&self) -> u16 {
+        self.status.as_u16()
+    }
+
+    /// The operator-facing message.
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
     /// Maps a flattened platform error onto status + category.
     pub fn from_runvane(err: RunvaneError) -> Self {
         let status =
@@ -98,6 +109,12 @@ impl From<RunvaneError> for ApiError {
 
 impl From<StorageError> for ApiError {
     fn from(err: StorageError) -> Self {
+        Self::from_runvane(RunvaneError::from(err))
+    }
+}
+
+impl From<DomainError> for ApiError {
+    fn from(err: DomainError) -> Self {
         Self::from_runvane(RunvaneError::from(err))
     }
 }
