@@ -46,3 +46,6 @@ pub mod plugins;
 
 /// Scheduler: dispatcher, worker pool, run attempt executor.
 pub mod scheduler;
+
+/// HTTP and gRPC API: routers, payloads, and error mapping.
+pub mod api;
