@@ -23,7 +23,7 @@ every phase. Consulting it first is mandatory if the session is interrupted.
 | 0 — design, scaffold, CI | complete |
 | 1 — domain + state machine + persistence | complete |
 | 2 — scheduler/worker pool/retry/backoff | complete |
-| 3 — HTTP + gRPC API | |
+| 3 — HTTP + gRPC API | complete |
 | 4 — CLI + config layer | |
 | 5 — plugins + webhooks/events | |
 | 6 — observability/cache/maintenance/dashboard | |
@@ -189,6 +189,33 @@ Commit count entering phase 2: 26.
 - `cargo test --lib` = 130 passed (126 without `sqlite`); clippy clean.
 - Production LOC (cloc `src`, 37 Rust files, incl. test blocks):
   5,480 code + 1,007 comment lines.
+- Deviations: see table at top.
+
+## Phase 3 status: COMPLETE
+
+- HTTP v1 surface in `src/api`: uniform `ApiEnvelope` + stable error bodies
+  (`ErrorBody` mapped through `RunvaneError::http_status()`); axum router
+  (0.7 `:param` segments) with health, workflow create/list/get, and run
+  submit/list/get/cancel handlers. Requests carry a versioned payload subset;
+  responses return the canonical domain documents unchanged.
+- Wire contract pinned by router tests (real MemoryStore + ManualClock,
+  `tower::ServiceExt::oneshot`): status codes, envelope shape, error codes,
+  list filters, cancel idempotency, and the 1 MiB run-input boundary.
+- `Store::cancel_run` added to the trait and both backends: transitions
+  `Queued | Running -> Cancelled`, removes the queue entry unconditionally
+  (no lease race), returns `false` for terminal runs; pinned in the shared
+  backend suite.
+- gRPC mirror in `src/api/grpc.rs` from `proto/runvane/v1/api.proto`
+  (`tonic-build` moved to `[build-dependencies]`, `build.rs` added): same
+  operations over HTTP/2; elastic documents travel as serialized JSON in
+  `bytes` fields. In-process loopback tests cover create/submit/get/cancel
+  round trips and tonic error-code mapping (incl. `InvalidArgument`,
+  `NotFound`, `FailedPrecondition`).
+- Commit count at phase end: 34 (19 pre-existing + 15 build commits).
+- `cargo test --lib` = 148 passed (144 without `sqlite`); `cargo clippy
+  --all-targets` zero warnings; `--no-default-features` build green.
+- Production LOC (cloc `src`, 42 files, incl. test blocks):
+  6,978 code + 1,160 comment lines.
 - Deviations: see table at top.
 
 ## Phase 1 status: COMPLETE
