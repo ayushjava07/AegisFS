@@ -52,3 +52,6 @@ pub mod api;
 
 /// Server configuration: defaults, TOML file layer, environment overrides.
 pub mod config;
+
+/// `runvane` command-line: serve + control-plane client subcommands.
+pub mod cli;
