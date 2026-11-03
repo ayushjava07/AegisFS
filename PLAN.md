@@ -24,7 +24,7 @@ every phase. Consulting it first is mandatory if the session is interrupted.
 | 1 — domain + state machine + persistence | complete |
 | 2 — scheduler/worker pool/retry/backoff | complete |
 | 3 — HTTP + gRPC API | complete |
-| 4 — CLI + config layer | |
+| 4 — CLI + config layer | complete |
 | 5 — plugins + webhooks/events | |
 | 6 — observability/cache/maintenance/dashboard | |
 | 7 — hardening pass | |
@@ -216,6 +216,32 @@ Commit count entering phase 2: 26.
   --all-targets` zero warnings; `--no-default-features` build green.
 - Production LOC (cloc `src`, 42 files, incl. test blocks):
   6,978 code + 1,160 comment lines.
+- Deviations: see table at top.
+
+## Phase 4 status: COMPLETE
+
+- Config layer in `src/config.rs`: defaults, a strict TOML file layer
+  (unknown keys fail loudly), and `RUNVANE_*` environment overrides; the
+  pure `apply_env_map` split keeps precedence tests free of process-global
+  state. Explicit validation rejects port-0 and non-positive durations.
+- `src/cli` with clap derive: `runvane serve`, `workflows
+  {create,list,get}`, `runs {submit,list,get,cancel}`, `version`.
+- `serve` wires config -> store (in-memory or SQLite) -> registry built-ins
+  -> shared clock -> axum + tonic listeners, an optional scheduler thread
+  (worker pool + dispatcher + lease reap) gated by `--workers 0`, and
+  cooperative ctrl-c shutdown. Flags > env > file > defaults pinned by tests.
+- Control-plane subcommands are thin shells over the **gRPC client**
+  (`src/cli/client.rs`), dogfooding the exact protocol stubs the server
+  serves; output is one pretty JSON document per invocation. Spec files map
+  onto the proto payloads with strict subsections and duplicate-tag rejection.
+- In-process loopback e2e proves create -> submit -> list through the CLI
+  against a running control plane; the real binary was smoke-tested
+  (`runvane --help`, `runvane version`).
+- Commit count at phase end: 37 (19 pre-existing + 18 build commits).
+- `cargo test --lib` = 176 passed (172 without `sqlite`); `cargo clippy
+  --all-targets` zero warnings.
+- Production LOC (cloc `src`, 46 Rust files, incl. test blocks):
+  8,211 code + 1,334 comment lines.
 - Deviations: see table at top.
 
 ## Phase 1 status: COMPLETE
