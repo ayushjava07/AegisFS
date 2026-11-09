@@ -16,6 +16,8 @@ use crate::api::{AppState, build_router, GrpcService};
 use crate::clock::{Clock, SystemClock};
 use crate::config::Config;
 use crate::error::RunvaneError;
+use crate::events::dispatch::LoggingSink;
+use crate::events::watcher::Watcher;
 use crate::plugins::handler::Registry;
 use crate::scheduler::pool::{Dispatcher, WorkerPool};
 use crate::scheduler::reap::reap_expired_leases;
@@ -226,6 +228,10 @@ fn spawn_scheduler_thread(
 ) -> Result<(), RunvaneError> {
     let pool = WorkerPool::spawn(workers, registry, Arc::clone(&store), Arc::clone(&clock), SCHEDULER_SEED);
     let poll = Duration::from_millis(reap_ms.max(1) as u64);
+    // Webhook watch: log deliveries by default; operators can point hooks at
+    // loopback receivers or swap in a stronger sink. Anchored at boot so a
+    // clean start replays nothing.
+    let mut watcher = Watcher::with_sink(Arc::new(LoggingSink), clock.as_ref());
     std::thread::spawn(move || {
         // Build the dispatcher inside the thread so its borrowed store/clock
         // references live exactly as long as the owning `Arc`s do.
@@ -239,7 +245,13 @@ fn spawn_scheduler_thread(
         while !stop.load(Ordering::SeqCst) {
             let stats = dispatcher.step();
             let reap = reap_expired_leases(store.as_ref(), clock.as_ref());
-            tracing::debug!(scanned = stats.scanned, claimed = stats.claimed, reap_stats = ?reap);
+            let watch = watcher.poll(store.as_ref(), clock.now_ms());
+            tracing::debug!(
+                scanned = stats.scanned,
+                claimed = stats.claimed,
+                reap_stats = ?reap,
+                events = ?watch,
+            );
             std::thread::sleep(poll);
         }
         tracing::debug!("scheduler thread stopped");

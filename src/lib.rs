@@ -55,3 +55,6 @@ pub mod config;
 
 /// `runvane` command-line: serve + control-plane client subcommands.
 pub mod cli;
+
+/// Webhook/event subsystem: event model, hook dispatch, differential watcher.
+pub mod events;
