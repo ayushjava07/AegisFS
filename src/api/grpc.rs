@@ -26,15 +26,17 @@ use crate::domain::retry_policy::{BackoffKind, JitterKind, RetryPolicy};
 use crate::domain::run::Run;
 use crate::domain::status::{Priority, RunStatus};
 use crate::domain::validation;
+use crate::domain::workflow::{HookSpec, Hooks};
 use crate::persistence::model::{ClaimToken, QueueEntry};
 use crate::persistence::RunFilter;
 use crate::state::run_fsm;
 
 use self::proto::{
     runvane_server::Runvane, CancelRunRequest, GetRunRequest, GetWorkflowRequest,
-    HealthRequest, HealthResponse, ListRunsRequest, ListRunsResponse, ListWorkflowsRequest,
-    ListWorkflowsResponse, RunResponse, RetryPolicy as ProtoRetryPolicy, SubmitRunRequest,
-    TaskSpec as ProtoTaskSpec, WorkflowResponse, WorkflowSpec as ProtoWorkflowSpec,
+    HealthRequest, HealthResponse, HookSpec as ProtoHookSpec, HooksSpec as ProtoHooksSpec,
+    ListRunsRequest, ListRunsResponse, ListWorkflowsRequest, ListWorkflowsResponse, RunResponse,
+    RetryPolicy as ProtoRetryPolicy, SubmitRunRequest, TaskSpec as ProtoTaskSpec,
+    WorkflowResponse, WorkflowSpec as ProtoWorkflowSpec,
 };
 
 /// Generated protobuf stubs for `proto/runvane/v1/api.proto`.
@@ -148,6 +150,44 @@ fn retry_from(proto: Option<&ProtoRetryPolicy>) -> Result<Option<RetryPolicy>, S
     Ok(Some(policy))
 }
 
+/// Maps the proto hooks block into the domain `Hooks` value.
+fn hooks_from(proto: Option<&ProtoHooksSpec>) -> Result<Option<Hooks>, Status> {
+    let Some(proto) = proto else {
+        return Ok(None);
+    };
+    let mut hooks = Hooks::default();
+    for spec in &proto.on_start {
+        hooks.on_start.push(hook_from(spec)?);
+    }
+    for spec in &proto.on_success {
+        hooks.on_success.push(hook_from(spec)?);
+    }
+    for spec in &proto.on_failure {
+        hooks.on_failure.push(hook_from(spec)?);
+    }
+    for spec in &proto.on_cancel {
+        hooks.on_cancel.push(hook_from(spec)?);
+    }
+    Ok(Some(hooks))
+}
+
+/// Maps a single wire hook spec into the domain type.
+fn hook_from(proto: &ProtoHookSpec) -> Result<HookSpec, Status> {
+    let spec = HookSpec {
+        webhook_url: (!proto.webhook_url.is_empty()).then_some(proto.webhook_url.clone()),
+        event_filter: (!proto.event_filter.is_empty()).then_some(proto.event_filter.clone()),
+        headers: proto
+            .headers
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
+    };
+    if let Some(url) = &spec.webhook_url {
+        validation::validate_webhook_url(url).map_err(Status::invalid_argument)?;
+    }
+    Ok(spec)
+}
+
 fn task_from(proto: ProtoTaskSpec) -> Result<TaskSpecPayload, Status> {
     Ok(TaskSpecPayload {
         name: proto.name,
@@ -197,7 +237,6 @@ impl Runvane for GrpcService {
         request: Request<ProtoWorkflowSpec>,
     ) -> Result<Response<WorkflowResponse>, Status> {
         let wire = request.into_inner();
-        let hooks = None;
         let spec = WorkflowSpec {
             tenant: wire.tenant,
             name: wire.name,
@@ -210,7 +249,7 @@ impl Runvane for GrpcService {
             timeout_ms: (wire.timeout_ms != 0).then_some(wire.timeout_ms),
             retry: retry_from(wire.retry.as_ref())?,
             default_priority: Some(priority_from(&wire.default_priority)?),
-            hooks,
+            hooks: hooks_from(wire.hooks.as_ref())?,
             tags: Some(parse_tags("tags", &wire.tags_json)?),
         };
         let def = spec
@@ -469,6 +508,7 @@ mod tests {
             retry: None,
             default_priority: "normal".to_owned(),
             tags_json: br#"{"team":"infra"}"#.to_vec(),
+            hooks: None,
         }
     }
 
@@ -567,6 +607,57 @@ mod tests {
             .unwrap()
             .into_inner();
         assert_eq!(health.queue_depth, 0);
+
+        handle.abort();
+    }
+
+    #[tokio::test]
+    async fn hooks_round_trip_and_validation() {
+        let (mut client, handle) = client().await;
+
+        // A definition with a lifecycle hook round-trips into the domain doc.
+        let spec = spec();
+        let mut with_hooks = spec.clone();
+        with_hooks.hooks = Some(wire::HooksSpec {
+            on_success: vec![wire::HookSpec {
+                webhook_url: "http://127.0.0.1:1/hook".to_owned(),
+                event_filter: "run.succeeded".to_owned(),
+                headers: std::collections::HashMap::from([(
+                    "X-Team".to_owned(),
+                    "infra".to_owned(),
+                )]),
+            }],
+            ..wire::HooksSpec::default()
+        });
+        let created = client
+            .create_workflow(with_hooks.clone())
+            .await
+            .unwrap()
+            .into_inner();
+        let def: crate::domain::workflow::WorkflowDef =
+            serde_json::from_slice(&created.definition_json).unwrap();
+        assert_eq!(def.hooks.on_success.len(), 1);
+        assert_eq!(
+            def.hooks.on_success[0].webhook_url.as_deref(),
+            Some("http://127.0.0.1:1/hook")
+        );
+        assert_eq!(
+            def.hooks.on_success[0].headers.get("X-Team"),
+            Some(&"infra".to_owned())
+        );
+
+        // Invalid hook URL is rejected before the definition is stored.
+        let mut bad = spec.clone();
+        bad.hooks = Some(wire::HooksSpec {
+            on_start: vec![wire::HookSpec {
+                webhook_url: "not a url".to_owned(),
+                ..wire::HookSpec::default()
+            }],
+            ..wire::HooksSpec::default()
+        });
+        let err = client.create_workflow(bad).await.unwrap_err();
+        assert_eq!(err.code(), tonic::Code::InvalidArgument);
+        assert!(err.message().contains("webhook url"));
 
         handle.abort();
     }

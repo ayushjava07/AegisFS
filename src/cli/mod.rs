@@ -285,6 +285,23 @@ struct RetryFile {
     retryable_only: Option<bool>,
 }
 
+/// The lifecycle-hook block accepted by spec files.
+#[derive(Debug, serde::Deserialize)]
+struct HooksFile {
+    on_start: Option<Vec<HookFile>>,
+    on_success: Option<Vec<HookFile>>,
+    on_failure: Option<Vec<HookFile>>,
+    on_cancel: Option<Vec<HookFile>>,
+}
+
+/// A single hook binding in a spec file.
+#[derive(Debug, serde::Deserialize)]
+struct HookFile {
+    webhook_url: Option<String>,
+    event_filter: Option<String>,
+    headers: Option<std::collections::BTreeMap<String, String>>,
+}
+
 impl RetryFile {
     fn into_proto(self) -> client::wire::RetryPolicy {
         client::wire::RetryPolicy {
@@ -314,6 +331,7 @@ fn build_workflow_spec(
         default_timeout_ms: Option<i64>,
         default_priority: Option<String>,
         tags: Option<std::collections::BTreeMap<String, String>>,
+        hooks: Option<HooksFile>,
         tasks: Vec<TaskFile>,
     }
     #[derive(serde::Deserialize)]
@@ -357,6 +375,7 @@ fn build_workflow_spec(
         None => Vec::new(),
         Some(map) => serde_json::to_vec(&map).map_err(|e| RunvaneError::Server(e.to_string()))?,
     };
+    let hooks = hooks_file_into_proto(spec.hooks.as_ref());
     Ok(client::wire::WorkflowSpec {
         tenant: tenant.to_owned(),
         name: name.to_owned(),
@@ -366,6 +385,47 @@ fn build_workflow_spec(
         default_priority: spec.default_priority.unwrap_or_default(),
         tags_json,
         tasks,
+        hooks,
+    })
+}
+
+fn hook_spec_into_proto(hook: &HookFile) -> client::wire::HookSpec {
+    client::wire::HookSpec {
+        webhook_url: hook.webhook_url.clone().unwrap_or_default(),
+        event_filter: hook.event_filter.clone().unwrap_or_default(),
+        headers: hook
+            .headers
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .collect(),
+    }
+}
+
+fn hooks_file_into_proto(hooks: Option<&HooksFile>) -> Option<client::wire::HooksSpec> {
+    let hooks = hooks?;
+    let empty = || Vec::with_capacity(0);
+    Some(client::wire::HooksSpec {
+        on_start: hooks
+            .on_start
+            .as_ref()
+            .map(|hs| hs.iter().map(hook_spec_into_proto).collect())
+            .unwrap_or_else(empty),
+        on_success: hooks
+            .on_success
+            .as_ref()
+            .map(|hs| hs.iter().map(hook_spec_into_proto).collect())
+            .unwrap_or_else(empty),
+        on_failure: hooks
+            .on_failure
+            .as_ref()
+            .map(|hs| hs.iter().map(hook_spec_into_proto).collect())
+            .unwrap_or_else(empty),
+        on_cancel: hooks
+            .on_cancel
+            .as_ref()
+            .map(|hs| hs.iter().map(hook_spec_into_proto).collect())
+            .unwrap_or_else(empty),
     })
 }
 
@@ -454,6 +514,7 @@ mod tests {
             "default_timeout_ms": 30000,
             "default_priority": "high",
             "tags": {"team": "infra"},
+            "hooks": {"on_success": [{"webhook_url": "http://hooks:8080/ship", "event_filter": "run.succeeded", "headers": {"X-Team": "infra"}}]},
             "tasks": [
                 {"name": "build", "handler": "runvane.echo", "input": {"step": "build"}},
                 {"name": "deploy", "handler": "runvane.echo", "depends_on": ["build"], "meta": {"audit": true}}
@@ -472,6 +533,13 @@ mod tests {
         let retry = spec.retry.unwrap();
         assert_eq!(retry.max_attempts, 3);
         assert_eq!(retry.backoff, "exponential");
+        let hooks = spec.hooks.unwrap();
+        assert_eq!(hooks.on_success.len(), 1);
+        assert_eq!(
+            hooks.on_success[0].webhook_url,
+            "http://hooks:8080/ship"
+        );
+        assert_eq!(hooks.on_success[0].event_filter, "run.succeeded");
     }
 
     #[test]

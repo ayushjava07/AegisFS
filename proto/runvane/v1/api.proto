@@ -47,6 +47,23 @@ message HealthResponse {
   uint32 spec_version = 5;
 }
 
+message HookSpec {
+  // Webhook URL to POST the event document to.
+  string webhook_url = 1;
+  // Event code selector (`run.failed`, `succeeded`); empty matches all.
+  string event_filter = 2;
+  // Static headers sent with the delivery, `auth` secrets included.
+  map<string, string> headers = 3;
+}
+
+// Lifecycle hook bindings attached to a definition.
+message HooksSpec {
+  repeated HookSpec on_start = 1;
+  repeated HookSpec on_success = 2;
+  repeated HookSpec on_failure = 3;
+  repeated HookSpec on_cancel = 4;
+}
+
 message WorkflowSpec {
   string tenant = 1;
   string name = 2;
@@ -57,6 +74,8 @@ message WorkflowSpec {
   string default_priority = 7;
   // Serialized JSON object of operator tags.
   bytes tags_json = 8;
+  // Lifecycle hook bindings.
+  HooksSpec hooks = 9;
 }
 
 message TaskSpec {
