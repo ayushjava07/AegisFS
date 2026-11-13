@@ -25,7 +25,7 @@ every phase. Consulting it first is mandatory if the session is interrupted.
 | 2 — scheduler/worker pool/retry/backoff | complete |
 | 3 — HTTP + gRPC API | complete |
 | 4 — CLI + config layer | complete |
-| 5 — plugins + webhooks/events | |
+| 5 — plugins + webhooks/events | complete |
 | 6 — observability/cache/maintenance/dashboard | |
 | 7 — hardening pass | |
 | 8 — test-suite completion | |
@@ -242,6 +242,35 @@ Commit count entering phase 2: 26.
   --all-targets` zero warnings.
 - Production LOC (cloc `src`, 46 Rust files, incl. test blocks):
   8,211 code + 1,334 comment lines.
+- Deviations: see table at top.
+
+## Phase 5 status: COMPLETE
+
+- Event model in `src/events`: `EventKind` (started + the four terminal
+  states) with stable wire codes, and a `RunEventDoc` that is the payload
+  for every transport (webhook body, logs, tests).
+- Hook dispatch in `src/events/dispatch.rs`: `match_hooks` selects the
+  right lifecycle slice and applies `event_filter` (code or status-name);
+  deliveries carry a sha256-derived stable id for consumer dedup. Sinks are
+  a plain trait: `RecordingSink` (test/audit), `LoggingSink` (serve
+  default), and a dependency-free `HttpSink` that POSTs to plain-http
+  loopback receivers (pinned by a real one-shot loopback exchange).
+- Differential watcher in `src/events/watcher.rs`: watermark cursors
+  (started, finished) anchored at boot replay nothing; one poll observes,
+  orders by `(timestamp, run_id)`, dispatches start-before-terminal, and
+  advances watermarks only after dispatch. Wired into the `serve` scheduler
+  thread.
+- Hooks now travel the full wire contract: `HooksSpec`/`HookSpec` messages
+  in the proto, converted + URL-validated in the gRPC handler (bad URLs ->
+  `InvalidArgument`), and accepted in CLI spec files; HTTP payloads already
+  carried `Hooks`. Round-trip and rejection tests on both transports.
+- `serve` installs the plugin registry built-ins; definitions created via
+  any transport can bind hooks that the scheduler fires.
+- Commit count at phase end: 40 (19 pre-existing + 21 build commits).
+- `cargo test --lib` = 193 passed (189 without `sqlite`); `cargo clippy
+  --all-targets` zero warnings.
+- Production LOC (cloc `src`, 49 Rust files, incl. test blocks):
+  9,162 code + 1,478 comment lines.
 - Deviations: see table at top.
 
 ## Phase 1 status: COMPLETE
