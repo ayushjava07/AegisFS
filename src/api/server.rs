@@ -41,6 +41,8 @@ pub struct AppState {
     pub clock: Arc<dyn Clock>,
     /// Server boot timestamp, captured once at construction.
     pub boot_ms: i64,
+    /// Process-level metric counters for the debug page.
+    pub metrics: Arc<crate::telemetry::Metrics>,
 }
 
 /// Builds the v1 router wired to `state`.
@@ -59,6 +61,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/v1/runs", get(list_runs))
         .route("/v1/runs/:id", get(get_run))
         .route("/v1/runs/:id/cancel", post(cancel_run))
+        .route("/v1/debug/metrics", get(metrics))
         .with_state(state)
 }
 
@@ -73,6 +76,35 @@ async fn health(State(state): State<Arc<AppState>>) -> Json<Envelope<HealthView>
     }))
 }
 
+/// `GET /v1/debug/metrics` — counter snapshot plus store-derived gauges.
+async fn metrics(State(state): State<Arc<AppState>>) -> Json<MetricsView> {
+    let snapshot = state.metrics.snapshot();
+    let gauges = Gauges {
+        queue_depth: state.store.len_queue() as u64,
+        workflows: state.store.list_workflows().map_or(0, |r| r.len()),
+        runs: state
+            .store
+            .list_runs(&crate::persistence::RunFilter::default())
+            .map_or(0, |r| r.len()),
+    };
+    Json(MetricsView { snapshot, gauges })
+}
+
+/// Envelope variant only for the metrics page: counters + gauges side by side.
+#[derive(Debug, serde::Serialize)]
+struct MetricsView {
+    snapshot: crate::telemetry::MetricsSnapshot,
+    gauges: Gauges,
+}
+
+/// Store-derived gauges computed on demand.
+#[derive(Debug, serde::Serialize)]
+struct Gauges {
+    queue_depth: u64,
+    workflows: usize,
+    runs: usize,
+}
+
 /// `POST /v1/workflows` — create a definition.
 async fn create_workflow(
     State(state): State<Arc<AppState>>,
@@ -82,6 +114,10 @@ async fn create_workflow(
         .into_definition(state.clock.now_ms())
         .map_err(api_err)?;
     let stored = state.store.put_workflow(def).map_err(ApiError::from)?;
+    state
+        .metrics
+        .workflow_creations_total
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     Ok((StatusCode::CREATED, Json(Envelope::of(stored.def))))
 }
 
@@ -154,6 +190,10 @@ async fn submit_run(
             claimed_by: None,
         })
         .map_err(ApiError::from)?;
+    state
+        .metrics
+        .run_submissions_total
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     Ok((StatusCode::ACCEPTED, Json(Envelope::of(run))))
 }
 
@@ -199,6 +239,10 @@ async fn cancel_run(
         .store
         .cancel_run(&run_id, state.clock.now_ms())
         .map_err(ApiError::from)?;
+    state
+        .metrics
+        .run_cancellations_total
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let updated = state.store.get_run(&run_id).map_err(ApiError::from)?;
     Ok(Json(Envelope::of(updated)))
 }
@@ -222,6 +266,7 @@ mod tests {
             registry: Arc::new(Registry::new()),
             clock: Arc::new(clock),
             boot_ms: 1_720_000_000_000,
+            metrics: crate::telemetry::shared(),
         })
     }
 
@@ -606,6 +651,47 @@ mod tests {
         .await;
         let body = read_json(res).await;
         assert_eq!(body["data"]["queueDepth"], 0);
+    }
+
+    #[tokio::test]
+    async fn debug_metrics_reports_counters_and_gauges() {
+        let app = build_router(test_state());
+
+        // Plant a workflow and a run so the gauges are non-trivial.
+        let create = json_body(&serde_json::json!({
+            "tenant": "acme",
+            "name": "ship",
+            "tasks": [{"name": "a", "handler": "runvane.echo"}],
+        }));
+        let res = send(&app, create).await;
+        assert_eq!(res.status(), HttpStatus::CREATED);
+        let res = send(
+            &app,
+            Request::builder()
+                .method("POST")
+                .header("content-type", "application/json")
+                .uri("/v1/workflows/acme/ship/runs")
+                .body(Body::from("{}"))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(res.status(), HttpStatus::ACCEPTED);
+
+        let res = send(
+            &app,
+            Request::builder()
+                .uri("/v1/debug/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(res.status(), HttpStatus::OK);
+        let body = read_json(res).await;
+        assert_eq!(body["snapshot"]["workflow_creations_total"], 1);
+        assert_eq!(body["snapshot"]["run_submissions_total"], 1);
+        assert_eq!(body["gauges"]["queue_depth"], 1);
+        assert_eq!(body["gauges"]["runs"], 1);
+        assert!(!body["snapshot"]["version"].as_str().unwrap().is_empty());
     }
 
     #[tokio::test]

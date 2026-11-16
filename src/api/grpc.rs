@@ -437,6 +437,7 @@ mod tests {
             registry: Arc::new(Registry::new()),
             clock: Arc::new(ManualClock::at(1_720_000_000_000)),
             boot_ms: 1_720_000_000_000,
+            metrics: crate::telemetry::shared(),
         })
     }
 

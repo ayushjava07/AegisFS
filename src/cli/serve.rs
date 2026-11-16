@@ -153,6 +153,7 @@ pub async fn serve(args: &ServeArgs) -> Result<(), RunvaneError> {
         registry: Arc::clone(&registry),
         clock: Arc::clone(&clock),
         boot_ms,
+        metrics: crate::telemetry::shared(),
     });
     let router = build_router(Arc::clone(&state));
     let grpc_service = GrpcService::new(Arc::clone(&state)).into_server();
@@ -167,15 +168,16 @@ pub async fn serve(args: &ServeArgs) -> Result<(), RunvaneError> {
 
     let stop = Arc::new(AtomicBool::new(false));
     if cfg.workers > 0 {
-        spawn_scheduler_thread(
-            cfg.workers,
-            cfg.lease_ms,
-            cfg.reap_interval_ms,
-            Arc::clone(&store),
-            Arc::clone(&registry),
-            Arc::clone(&clock),
-            Arc::clone(&stop),
-        )?;
+        spawn_scheduler_thread(SchedulerArgs {
+            workers: cfg.workers,
+            lease_ms: cfg.lease_ms,
+            reap_ms: cfg.reap_interval_ms,
+            store: Arc::clone(&store),
+            registry: Arc::clone(&registry),
+            clock: Arc::clone(&clock),
+            metrics: Arc::clone(&state.metrics),
+            stop: Arc::clone(&stop),
+        })?;
     } else {
         tracing::info!("scheduler disabled (workers = 0)");
     }
@@ -214,18 +216,33 @@ pub async fn serve(args: &ServeArgs) -> Result<(), RunvaneError> {
     Ok(())
 }
 
-/// Spawns the scan/dispatch/reap loop on its own thread. The dispatcher keeps
-/// a thread-pool of worker threads active for the server's whole lifetime; the
-/// `stop` flag yields cooperatively between rounds so shutdown is prompt.
-fn spawn_scheduler_thread(
+/// Everything the scheduler thread needs over its whole lifetime, grouped to
+/// keep the spawn call site legible.
+struct SchedulerArgs {
     workers: usize,
     lease_ms: i64,
     reap_ms: i64,
     store: Arc<dyn crate::persistence::Store>,
     registry: Arc<Registry>,
     clock: Arc<dyn Clock>,
+    metrics: Arc<crate::telemetry::Metrics>,
     stop: Arc<AtomicBool>,
-) -> Result<(), RunvaneError> {
+}
+
+/// Spawns the scan/dispatch/reap loop on its own thread. The dispatcher keeps
+/// a thread-pool of worker threads active for the server's whole lifetime; the
+/// `stop` flag yields cooperatively between rounds so shutdown is prompt.
+fn spawn_scheduler_thread(args: SchedulerArgs) -> Result<(), RunvaneError> {
+    let SchedulerArgs {
+        workers,
+        lease_ms,
+        reap_ms,
+        store,
+        registry,
+        clock,
+        metrics,
+        stop,
+    } = args;
     let pool = WorkerPool::spawn(workers, registry, Arc::clone(&store), Arc::clone(&clock), SCHEDULER_SEED);
     let poll = Duration::from_millis(reap_ms.max(1) as u64);
     // Webhook watch: log deliveries by default; operators can point hooks at
@@ -244,8 +261,20 @@ fn spawn_scheduler_thread(
         );
         while !stop.load(Ordering::SeqCst) {
             let stats = dispatcher.step();
+            metrics
+                .dispatches_total
+                .fetch_add(1, Ordering::Relaxed);
             let reap = reap_expired_leases(store.as_ref(), clock.as_ref());
             let watch = watcher.poll(store.as_ref(), clock.now_ms());
+            metrics
+                .watch_terminals_total
+                .fetch_add(watch.finished as u64, Ordering::Relaxed);
+            metrics
+                .event_deliveries_total
+                .fetch_add(watch.dispatched as u64, Ordering::Relaxed);
+            metrics
+                .event_deliveries_ok_total
+                .fetch_add(watch.dispatched as u64, Ordering::Relaxed);
             tracing::debug!(
                 scanned = stats.scanned,
                 claimed = stats.claimed,
