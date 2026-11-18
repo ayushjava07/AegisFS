@@ -143,6 +143,12 @@ pub async fn serve(args: &ServeArgs) -> Result<(), RunvaneError> {
     tracing::debug!(?cfg, "serving with resolved configuration");
 
     let store = open_store(&cfg)?;
+    tracing::debug!(
+        cache_capacity = crate::persistence::lru_store::DEFAULT_CACHE_CAPACITY,
+        "wrapping store with lru read cache"
+    );
+    let store: Arc<dyn crate::persistence::Store> =
+        Arc::new(crate::persistence::lru_store::LruStore::wrap(store));
     let registry = Arc::new(Registry::new());
     registry.install_builtins();
     let clock: Arc<dyn Clock> = Arc::new(SystemClock);

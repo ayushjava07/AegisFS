@@ -10,6 +10,7 @@
 pub mod filter;
 #[cfg(test)]
 pub mod fixtures;
+pub mod lru_store;
 pub mod memory;
 #[cfg(feature = "sqlite")]
 pub mod migrations;
