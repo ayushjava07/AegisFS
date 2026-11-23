@@ -48,6 +48,7 @@ pub struct AppState {
 /// Builds the v1 router wired to `state`.
 pub fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
+        .route("/", get(dashboard))
         .route("/v1/health", get(health))
         .route("/v1/workflows", get(list_workflows).post(create_workflow))
         .route(
@@ -63,6 +64,76 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/v1/runs/:id/cancel", post(cancel_run))
         .route("/v1/debug/metrics", get(metrics))
         .with_state(state)
+}
+
+/// `GET /` — a minimal read-only overview rendered inline (no assets).
+async fn dashboard(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    use std::fmt::Write;
+
+    let runs = state
+        .store
+        .list_runs(&crate::persistence::RunFilter::default())
+        .unwrap_or_default();
+    let summaries = state
+        .store
+        .list_workflow_summaries()
+        .unwrap_or_default();
+    let now_ms = state.clock.now_ms();
+    let uptime_s = (now_ms - state.boot_ms).max(0) / 1000;
+
+    let mut html = String::new();
+    let _ = write!(
+        html,
+        "<!doctype html><html><head><title>runvane</title>"
+    );
+    let _ = write!(
+        html,
+        "<style>body{{font:14px/1.5 -apple-system,sans-serif;max-width:960px;margin:2rem auto;padding:0 1rem}}table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #ddd;padding:.4rem;text-align:left}}</style></head><body>"
+    );
+    let _ = write!(
+        html,
+        "<h1>runvane</h1><p>v{} &middot; uptime {}s &middot; queue depth {}</p>",
+        crate::telemetry::VERSION,
+        uptime_s,
+        state.store.len_queue(),
+    );
+    let _ = write!(html, "<section><h2>workflows (run count)</h2><table><tr><th>name</th><th>runs</th></tr>");
+    for summary in summaries {
+        let _ = write!(
+            html,
+            "<tr><td><code>{}/{}</code></td><td>{}</td></tr>",
+            summary.workflow.def.tenant,
+            summary.workflow.def.name,
+            summary.run_count
+        );
+    }
+    let _ = write!(html, "</table></section>");
+    let _ = write!(
+        html,
+        "<section><h2>recent runs</h2><table><tr><th>id</th><th>tenant/def</th><th>status</th><th>finished</th></tr>"
+    );
+    for run in runs {
+        let finished = run.finished_at_ms.unwrap_or(run.created_at_ms);
+        let _ = write!(
+            html,
+            "<tr><td><code>{}</code></td><td>{}/{}</td><td>{}</td><td>{}</td></tr>",
+            run.id.as_str(),
+            run.tenant,
+            run.def_name,
+            run.status,
+            finished,
+        );
+    }
+    let _ = write!(html, "</table></section>");
+    let _ = write!(
+        html,
+        "<p><a href=\"/v1/debug/metrics\">metrics</a></p></body></html>"
+    );
+    (
+        axum::http::StatusCode::OK,
+        [("content-type", "text/html; charset=utf-8")],
+        html,
+    )
 }
 
 /// `GET /v1/health` — liveness and coarse queue depth.
@@ -651,6 +722,41 @@ mod tests {
         .await;
         let body = read_json(res).await;
         assert_eq!(body["data"]["queueDepth"], 0);
+    }
+
+    #[tokio::test]
+    async fn dashboard_renders_overview_with_rows() {
+        let app = build_router(test_state());
+
+        let create = json_body(&serde_json::json!({
+            "tenant": "acme",
+            "name": "nightly",
+            "tasks": [{"name": "a", "handler": "runvane.echo"}],
+        }));
+        let res = send(&app, create).await;
+        assert_eq!(res.status(), HttpStatus::CREATED);
+
+        let res = send(
+            &app,
+            Request::builder()
+                .uri("/")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(res.status(), HttpStatus::OK);
+        let headers = res.headers();
+        assert_eq!(
+            headers.get("content-type").unwrap().to_str().unwrap(),
+            "text/html; charset=utf-8"
+        );
+        let body = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let text = String::from_utf8(body.to_vec()).unwrap();
+        assert!(text.contains("acme/nightly"), "workflow row rendered");
+        assert!(text.contains("queue depth"), "overview header rendered");
+        assert!(text.contains("/v1/debug/metrics"), "metrics link present");
     }
 
     #[tokio::test]
