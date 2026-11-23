@@ -26,7 +26,7 @@ every phase. Consulting it first is mandatory if the session is interrupted.
 | 3 — HTTP + gRPC API | complete |
 | 4 — CLI + config layer | complete |
 | 5 — plugins + webhooks/events | complete |
-| 6 — observability/cache/maintenance/dashboard | |
+| 6 — observability/cache/maintenance/dashboard | complete |
 | 7 — hardening pass | |
 | 8 — test-suite completion | |
 | 9 — clean-baseline verification (golden tag) | |
@@ -271,6 +271,30 @@ Commit count entering phase 2: 26.
   --all-targets` zero warnings.
 - Production LOC (cloc `src`, 49 Rust files, incl. test blocks):
   9,162 code + 1,478 comment lines.
+- Deviations: see table at top.
+
+## Phase 6 status: COMPLETE
+
+- Observability: `src/telemetry.rs` holds a lock-free counter registry
+  (`*_total` naming); bumped by the mutate handlers, the scheduler thread
+  (dispatches), and the watcher (terminals, deliveries). Served at
+  `GET /v1/debug/metrics` as a counter snapshot plus store-derived gauges
+  (queue depth, workflow count, run count).
+- Cache: `src/persistence/lru_store.rs` is a `Store` decorator memoizing
+  `get_workflow` by `(tenant, name)` with an LRU policy; writes invalidate
+  that key; all other calls delegate. Wired into `serve` around whatever
+  backend `open_store` produces.
+- Maintenance: the lease-recovery pass predates this phase (scheduler reap);
+  `recover_expired_leases` continues to serve it.
+- Dashboard: `GET /` renders an inline, asset-free HTML overview of
+  workflows (with run counts) and recent runs, plus uptime and queue depth
+  and a link to `/v1/debug/metrics`. No templating dependency: one handler,
+  `std::fmt::Write`, and a content-type header.
+- Commit count at phase end: 44 (19 pre-existing + 25 build commits).
+- `cargo test --lib` = 199 passed (195 without `sqlite`); `cargo clippy
+  --all-targets` zero warnings.
+- Production LOC (cloc `src`, 51 Rust files, incl. test blocks):
+  9,667 code + 1,534 comment lines.
 - Deviations: see table at top.
 
 ## Phase 1 status: COMPLETE
