@@ -80,7 +80,12 @@ impl RunError {
                 self.message,
                 self.attempts
             ),
-            None => format!("[{}] {} (attempt {})", self.kind.code(), self.message, self.attempts),
+            None => format!(
+                "[{}] {} (attempt {})",
+                self.kind.code(),
+                self.message,
+                self.attempts
+            ),
         }
     }
 }
@@ -175,7 +180,10 @@ mod tests {
             task: None,
             ..with_task.clone()
         };
-        assert_eq!(bare.to_log_line(), "[transient] connection reset (attempt 2)");
+        assert_eq!(
+            bare.to_log_line(),
+            "[transient] connection reset (attempt 2)"
+        );
     }
 
     #[test]

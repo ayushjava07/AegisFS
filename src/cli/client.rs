@@ -36,7 +36,9 @@ fn from_tonic(err: tonic::Status) -> RunvaneError {
         Code::InvalidArgument | Code::FailedPrecondition => {
             RunvaneError::Config(err.message().to_owned())
         }
-        Code::Unavailable | Code::DeadlineExceeded => RunvaneError::Server(err.message().to_owned()),
+        Code::Unavailable | Code::DeadlineExceeded => {
+            RunvaneError::Server(err.message().to_owned())
+        }
         _ => RunvaneError::Server(err.message().to_owned()),
     }
 }
@@ -181,8 +183,8 @@ pub fn render_json(bytes: &[u8]) -> Result<String, RunvaneError> {
 pub fn render_json_list(each: &[Vec<u8>]) -> Result<String, RunvaneError> {
     let mut out = Vec::with_capacity(each.len());
     for bytes in each {
-        let value: serde_json::Value = serde_json::from_slice(bytes)
-            .map_err(|e| RunvaneError::Server(e.to_string()))?;
+        let value: serde_json::Value =
+            serde_json::from_slice(bytes).map_err(|e| RunvaneError::Server(e.to_string()))?;
         out.push(value);
     }
     serde_json::to_string_pretty(&serde_json::Value::Array(out))
@@ -239,7 +241,10 @@ mod tests {
     #[test]
     fn json_rendering_roundtrips() {
         let raw = br#"{"a":[1,2,3]}"#.to_vec();
-        assert_eq!(render_json(&raw).unwrap(), "{\n  \"a\": [\n    1,\n    2,\n    3\n  ]\n}");
+        assert_eq!(
+            render_json(&raw).unwrap(),
+            "{\n  \"a\": [\n    1,\n    2,\n    3\n  ]\n}"
+        );
         let list = vec![raw.clone(), raw];
         let out = render_json_list(&list).unwrap();
         assert_eq!(

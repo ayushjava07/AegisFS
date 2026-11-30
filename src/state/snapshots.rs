@@ -52,10 +52,7 @@ impl RunSnapshot {
 
     /// Number of tasks that ran (attempted at least once).
     pub fn attempted_tasks(&self) -> usize {
-        self.tasks
-            .iter()
-            .filter(|t| t.attempts > 0)
-            .count()
+        self.tasks.iter().filter(|t| t.attempts > 0).count()
     }
 }
 

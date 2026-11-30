@@ -15,7 +15,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 
 use crate::clock::Clock;
-use crate::domain::ids::{RunId, generate_id};
+use crate::domain::ids::{generate_id, RunId};
 use crate::domain::run::Run;
 use crate::domain::status::RunStatus;
 use crate::domain::validation;
@@ -25,10 +25,8 @@ use crate::persistence::Store;
 use crate::plugins::handler::Registry;
 use crate::state::run_fsm;
 
-use super::error::{ApiError, api_err};
-use super::payloads::{
-    Envelope, HealthView, RunQuery, SubmitRunRequest, WorkflowSpec,
-};
+use super::error::{api_err, ApiError};
+use super::payloads::{Envelope, HealthView, RunQuery, SubmitRunRequest, WorkflowSpec};
 
 /// Shared state handed to every handler.
 #[derive(Clone)]
@@ -51,14 +49,8 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/", get(dashboard))
         .route("/v1/health", get(health))
         .route("/v1/workflows", get(list_workflows).post(create_workflow))
-        .route(
-            "/v1/workflows/:tenant/:name",
-            get(get_workflow),
-        )
-        .route(
-            "/v1/workflows/:tenant/:name/runs",
-            post(submit_run),
-        )
+        .route("/v1/workflows/:tenant/:name", get(get_workflow))
+        .route("/v1/workflows/:tenant/:name/runs", post(submit_run))
         .route("/v1/runs", get(list_runs))
         .route("/v1/runs/:id", get(get_run))
         .route("/v1/runs/:id/cancel", post(cancel_run))
@@ -74,18 +66,12 @@ async fn dashboard(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         .store
         .list_runs(&crate::persistence::RunFilter::default())
         .unwrap_or_default();
-    let summaries = state
-        .store
-        .list_workflow_summaries()
-        .unwrap_or_default();
+    let summaries = state.store.list_workflow_summaries().unwrap_or_default();
     let now_ms = state.clock.now_ms();
     let uptime_s = (now_ms - state.boot_ms).max(0) / 1000;
 
     let mut html = String::new();
-    let _ = write!(
-        html,
-        "<!doctype html><html><head><title>runvane</title>"
-    );
+    let _ = write!(html, "<!doctype html><html><head><title>runvane</title>");
     let _ = write!(
         html,
         "<style>body{{font:14px/1.5 -apple-system,sans-serif;max-width:960px;margin:2rem auto;padding:0 1rem}}table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #ddd;padding:.4rem;text-align:left}}</style></head><body>"
@@ -97,14 +83,15 @@ async fn dashboard(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         uptime_s,
         state.store.len_queue(),
     );
-    let _ = write!(html, "<section><h2>workflows (run count)</h2><table><tr><th>name</th><th>runs</th></tr>");
+    let _ = write!(
+        html,
+        "<section><h2>workflows (run count)</h2><table><tr><th>name</th><th>runs</th></tr>"
+    );
     for summary in summaries {
         let _ = write!(
             html,
             "<tr><td><code>{}/{}</code></td><td>{}</td></tr>",
-            summary.workflow.def.tenant,
-            summary.workflow.def.name,
-            summary.run_count
+            summary.workflow.def.tenant, summary.workflow.def.name, summary.run_count
         );
     }
     let _ = write!(html, "</table></section>");
@@ -227,10 +214,7 @@ async fn submit_run(
     let input = body.input.unwrap_or_else(|| serde_json::json!({}));
     validation::validate_run_input(&input).map_err(api_err)?;
     let now_ms = state.clock.now_ms();
-    let run_number = state
-        .store
-        .next_run_number(&name)
-        .map_err(ApiError::from)?;
+    let run_number = state.store.next_run_number(&name).map_err(ApiError::from)?;
     let id = RunId::from_validated(generate_id("rn_"));
     let run = Run {
         id: id.clone(),
@@ -324,7 +308,7 @@ mod tests {
     use axum::body::Body;
     use axum::http::{Request, StatusCode as HttpStatus};
     use axum::response::Response;
-    use serde_json::{Value, json};
+    use serde_json::{json, Value};
     use tower::util::ServiceExt;
 
     use crate::clock::ManualClock;
@@ -385,7 +369,10 @@ mod tests {
         let app = build_router(test_state());
         let res = send(
             &app,
-            Request::builder().uri("/v1/health").body(Body::empty()).unwrap(),
+            Request::builder()
+                .uri("/v1/health")
+                .body(Body::empty())
+                .unwrap(),
         )
         .await;
         assert_eq!(res.status(), HttpStatus::OK);
@@ -438,7 +425,10 @@ mod tests {
         // State stayed clean.
         let res = send(
             &app,
-            Request::builder().uri("/v1/workflows").body(Body::empty()).unwrap(),
+            Request::builder()
+                .uri("/v1/workflows")
+                .body(Body::empty())
+                .unwrap(),
         )
         .await;
         let body = read_json(res).await;
@@ -527,7 +517,10 @@ mod tests {
         // Queue depth reflects the two pending submissions.
         let res = send(
             &app,
-            Request::builder().uri("/v1/health").body(Body::empty()).unwrap(),
+            Request::builder()
+                .uri("/v1/health")
+                .body(Body::empty())
+                .unwrap(),
         )
         .await;
         let body = read_json(res).await;
@@ -687,7 +680,10 @@ mod tests {
                 .unwrap(),
         )
         .await;
-        let run_id = read_json(res).await["data"]["id"].as_str().unwrap().to_owned();
+        let run_id = read_json(res).await["data"]["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
 
         let res = send(
             &app,
@@ -717,7 +713,10 @@ mod tests {
         // Queue entry removed: health no longer reports it pending.
         let res = send(
             &app,
-            Request::builder().uri("/v1/health").body(Body::empty()).unwrap(),
+            Request::builder()
+                .uri("/v1/health")
+                .body(Body::empty())
+                .unwrap(),
         )
         .await;
         let body = read_json(res).await;
@@ -738,10 +737,7 @@ mod tests {
 
         let res = send(
             &app,
-            Request::builder()
-                .uri("/")
-                .body(Body::empty())
-                .unwrap(),
+            Request::builder().uri("/").body(Body::empty()).unwrap(),
         )
         .await;
         assert_eq!(res.status(), HttpStatus::OK);

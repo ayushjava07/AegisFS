@@ -49,9 +49,7 @@ impl Metrics {
             dispatches_total: self.dispatches_total.load(Ordering::Relaxed),
             watch_terminals_total: self.watch_terminals_total.load(Ordering::Relaxed),
             event_deliveries_total: self.event_deliveries_total.load(Ordering::Relaxed),
-            event_deliveries_ok_total: self
-                .event_deliveries_ok_total
-                .load(Ordering::Relaxed),
+            event_deliveries_ok_total: self.event_deliveries_ok_total.load(Ordering::Relaxed),
         }
     }
 }
@@ -90,7 +88,9 @@ mod tests {
     fn counters_accumulate_and_snapshot_does_not_reset() {
         let metrics = Metrics::new();
         metrics.run_submissions_total.store(3, Ordering::Relaxed);
-        metrics.event_deliveries_ok_total.store(1, Ordering::Relaxed);
+        metrics
+            .event_deliveries_ok_total
+            .store(1, Ordering::Relaxed);
 
         let snap = metrics.snapshot();
         assert_eq!(snap.run_submissions_total, 3);
@@ -99,7 +99,9 @@ mod tests {
         assert_eq!(snap.version, VERSION);
 
         // Snapshotting is read-only; the counters survive it.
-        metrics.run_submissions_total.fetch_add(1, Ordering::Relaxed);
+        metrics
+            .run_submissions_total
+            .fetch_add(1, Ordering::Relaxed);
         assert_eq!(metrics.snapshot().run_submissions_total, 4);
     }
 }

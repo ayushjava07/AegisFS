@@ -15,8 +15,10 @@ pub mod server;
 
 pub use error::{ApiError, ErrorBody, ErrorDetail};
 pub use grpc::GrpcService;
-pub use payloads::{Envelope, HealthView, RunQuery, SubmitRunRequest, TaskSpecPayload, WorkflowSpec};
-pub use server::{AppState, build_router};
+pub use payloads::{
+    Envelope, HealthView, RunQuery, SubmitRunRequest, TaskSpecPayload, WorkflowSpec,
+};
+pub use server::{build_router, AppState};
 
 #[cfg(test)]
 mod tests {

@@ -17,7 +17,7 @@ use std::time::Duration;
 use serde_json::Value as Json;
 
 use crate::domain::workflow::{HookSpec, WorkflowDef};
-use crate::events::{EventKind, RunEventDoc, delivery_id};
+use crate::events::{delivery_id, EventKind, RunEventDoc};
 
 /// A single webhook delivery decision: destination, headers, and payload.
 #[derive(Debug, Clone, PartialEq)]
@@ -60,7 +60,9 @@ pub fn match_hooks(def: &WorkflowDef, kind: EventKind) -> (Vec<&HookSpec>, Match
     let mut matched = Vec::new();
     for spec in slice {
         match &spec.event_filter {
-            Some(filter) if filter != event_code && filter != event_code.trim_start_matches("run.") => {
+            Some(filter)
+                if filter != event_code && filter != event_code.trim_start_matches("run.") =>
+            {
                 stats.filtered += 1;
             }
             _ => {
@@ -304,7 +306,7 @@ impl Dispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::workflow::{Hooks, HookSpec};
+    use crate::domain::workflow::{HookSpec, Hooks};
 
     fn def_with_hooks(hooks: Hooks) -> WorkflowDef {
         WorkflowDef {
@@ -410,7 +412,10 @@ mod tests {
         // A different kind reaches a different slice (no on_start hooks here).
         let start = event(EventKind::RunStarted);
         let (start_d, _) = build_deliveries(&def, EventKind::RunStarted, &start);
-        assert!(start_d.is_empty(), "kind slices are disjoint by construction");
+        assert!(
+            start_d.is_empty(),
+            "kind slices are disjoint by construction"
+        );
         // The body round-trips to the event document.
         let body: RunEventDoc = serde_json::from_str(&deliveries[0].body_json).unwrap();
         assert_eq!(body.kind, "run.failed");

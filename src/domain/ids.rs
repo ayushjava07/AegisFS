@@ -506,7 +506,7 @@ mod tests {
 
     #[test]
     fn invalid_base32_character_is_rejected() {
-        let err = RunId::parse("rn_z!" ).unwrap_err();
+        let err = RunId::parse("rn_z!").unwrap_err();
         assert!(matches!(err, IdError::Malformed { .. }));
     }
 

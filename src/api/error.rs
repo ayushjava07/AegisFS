@@ -43,11 +43,7 @@ pub struct ApiError {
 
 impl ApiError {
     /// Builds an error with an explicit status/code.
-    pub fn new(
-        status: StatusCode,
-        code: &'static str,
-        message: impl Into<String>,
-    ) -> Self {
+    pub fn new(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
         Self {
             status,
             code,

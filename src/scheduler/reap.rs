@@ -28,9 +28,9 @@ pub fn reap_expired_leases(store: &dyn Store, clock: &dyn Clock) -> ReapStats {
 mod tests {
     use super::*;
     use crate::clock::ManualClock;
+    use crate::domain::ids::RunId;
     use crate::persistence::memory::MemoryStore;
     use crate::persistence::{ClaimToken, QueueEntry};
-    use crate::domain::ids::RunId;
 
     fn entry(run_id: &str, due_at_ms: i64, lease_until_ms: Option<i64>) -> QueueEntry {
         QueueEntry {

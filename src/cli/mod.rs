@@ -353,13 +353,15 @@ fn build_workflow_spec(
     for task in spec.tasks {
         let input_json = match task.input {
             None | Some(serde_json::Value::Null) => Vec::new(),
-            Some(json) => serde_json::to_vec(&json)
-                .map_err(|e| RunvaneError::Server(e.to_string()))?,
+            Some(json) => {
+                serde_json::to_vec(&json).map_err(|e| RunvaneError::Server(e.to_string()))?
+            }
         };
         let meta_json = match task.meta {
             None | Some(serde_json::Value::Null) => Vec::new(),
-            Some(json) => serde_json::to_vec(&json)
-                .map_err(|e| RunvaneError::Server(e.to_string()))?,
+            Some(json) => {
+                serde_json::to_vec(&json).map_err(|e| RunvaneError::Server(e.to_string()))?
+            }
         };
         tasks.push(client::wire::TaskSpec {
             name: task.name,
@@ -495,8 +497,10 @@ mod tests {
 
     #[test]
     fn runs_submit_accepts_tags() {
-        let cli = parse(&["runs", "submit", "--tenant", "a", "--name", "b", "-t", "k=v", "-t", "x=y"])
-            .unwrap();
+        let cli = parse(&[
+            "runs", "submit", "--tenant", "a", "--name", "b", "-t", "k=v", "-t", "x=y",
+        ])
+        .unwrap();
         let Command::Runs(runs) = &cli.command else {
             panic!("expected runs, got {:?}", cli.command);
         };
@@ -535,10 +539,7 @@ mod tests {
         assert_eq!(retry.backoff, "exponential");
         let hooks = spec.hooks.unwrap();
         assert_eq!(hooks.on_success.len(), 1);
-        assert_eq!(
-            hooks.on_success[0].webhook_url,
-            "http://hooks:8080/ship"
-        );
+        assert_eq!(hooks.on_success[0].webhook_url, "http://hooks:8080/ship");
         assert_eq!(hooks.on_success[0].event_filter, "run.succeeded");
     }
 

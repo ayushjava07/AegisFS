@@ -31,7 +31,10 @@ impl Backoff {
     /// delay after the first failed attempt), before jitter.
     pub fn raw_delay(&self, attempt_index: u32) -> u64 {
         let base = self.policy.base_delay_ms;
-        let max = self.policy.max_delay_ms.min(crate::domain::retry_policy::MAX_BACKOFF_MS);
+        let max = self
+            .policy
+            .max_delay_ms
+            .min(crate::domain::retry_policy::MAX_BACKOFF_MS);
         let raw = match self.policy.backoff {
             BackoffKind::Fixed => base,
             BackoffKind::Linear => {

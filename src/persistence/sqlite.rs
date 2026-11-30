@@ -181,9 +181,7 @@ impl Store for SqliteStore {
         let mut stmt = conn
             .prepare("SELECT document FROM workflows ORDER BY tenant, name")
             .map_err(backend_err)?;
-        let rows = stmt
-            .query_map([], decode_workflow)
-            .map_err(backend_err)?;
+        let rows = stmt.query_map([], decode_workflow).map_err(backend_err)?;
         rows.collect::<rusqlite::Result<Vec<_>>>()
             .map_err(backend_err)
     }
@@ -251,8 +249,11 @@ impl Store for SqliteStore {
 
     fn delete_run(&self, id: &RunId) -> Result<(), StorageError> {
         let conn = self.conn.blocking_lock();
-        conn.execute("DELETE FROM task_runs WHERE run_id = ?1", params![id.as_str()])
-            .map_err(backend_err)?;
+        conn.execute(
+            "DELETE FROM task_runs WHERE run_id = ?1",
+            params![id.as_str()],
+        )
+        .map_err(backend_err)?;
         conn.execute("DELETE FROM runs WHERE id = ?1", params![id.as_str()])
             .map_err(backend_err)?;
         Ok(())
@@ -271,11 +272,19 @@ impl Store for SqliteStore {
             let r = stmt
                 .query_map(params![tenant], decode_run)
                 .map_err(backend_err)?;
-            rows.extend(r.collect::<rusqlite::Result<Vec<_>>>().map_err(backend_err)?);
+            rows.extend(
+                r.collect::<rusqlite::Result<Vec<_>>>()
+                    .map_err(backend_err)?,
+            );
         } else {
-            let mut stmt = conn.prepare("SELECT document FROM runs").map_err(backend_err)?;
+            let mut stmt = conn
+                .prepare("SELECT document FROM runs")
+                .map_err(backend_err)?;
             let r = stmt.query_map([], decode_run).map_err(backend_err)?;
-            rows.extend(r.collect::<rusqlite::Result<Vec<_>>>().map_err(backend_err)?);
+            rows.extend(
+                r.collect::<rusqlite::Result<Vec<_>>>()
+                    .map_err(backend_err)?,
+            );
         }
         let matched: Vec<&Run> = rows.iter().filter(|r| filter.matches(r)).collect();
         Ok(filter.apply_order(matched))
@@ -294,7 +303,13 @@ impl Store for SqliteStore {
              ON CONFLICT(id) DO UPDATE SET
                status = excluded.status,
                document = excluded.document",
-            params![tr.id.as_str(), tr.run_id.as_str(), tr.task_name, tr.status.as_ref(), document],
+            params![
+                tr.id.as_str(),
+                tr.run_id.as_str(),
+                tr.task_name,
+                tr.status.as_ref(),
+                document
+            ],
         )
         .map_err(backend_err)?;
         Ok(())
@@ -396,13 +411,14 @@ impl Store for SqliteStore {
         // unclaimed (lease is `NULL`) or already owned by `token`. Expired
         // leases are reclaimed by `recover_expired_leases`, never stolen here —
         // otherwise short leases would be stealable by a slower worker.
-        let updated = conn.execute(
-            "UPDATE queue_entries SET token = ?2, claimed_by = ?3, lease_until_ms = ?4
+        let updated = conn
+            .execute(
+                "UPDATE queue_entries SET token = ?2, claimed_by = ?3, lease_until_ms = ?4
              WHERE run_id = ?1
                AND (lease_until_ms IS NULL OR token = ?2)",
-            params![run_id.as_str(), token.0, "dispatcher", now_ms + lease_ms],
-        )
-        .map_err(backend_err)?;
+                params![run_id.as_str(), token.0, "dispatcher", now_ms + lease_ms],
+            )
+            .map_err(backend_err)?;
         if updated == 0 {
             return Err(StorageError::ClaimLost(format!("run {run_id}")));
         }
@@ -410,7 +426,11 @@ impl Store for SqliteStore {
     }
 
     fn ack(&self, run_id: &RunId, token: &ClaimToken) -> Result<(), StorageError> {
-        self.claim_guard_op(run_id, token, "DELETE FROM queue_entries WHERE run_id = ?1 AND token = ?2")
+        self.claim_guard_op(
+            run_id,
+            token,
+            "DELETE FROM queue_entries WHERE run_id = ?1 AND token = ?2",
+        )
     }
 
     fn release(
@@ -434,12 +454,13 @@ impl Store for SqliteStore {
 
     fn failclaim(&self, run_id: &RunId, token: &ClaimToken) -> Result<(), StorageError> {
         let conn = self.conn.blocking_lock();
-        let updated = conn.execute(
-            "UPDATE queue_entries SET token = '', claimed_by = NULL, lease_until_ms = NULL
+        let updated = conn
+            .execute(
+                "UPDATE queue_entries SET token = '', claimed_by = NULL, lease_until_ms = NULL
              WHERE run_id = ?1 AND token = ?2",
-            params![run_id.as_str(), token.0],
-        )
-        .map_err(backend_err)?;
+                params![run_id.as_str(), token.0],
+            )
+            .map_err(backend_err)?;
         if updated == 0 {
             return Err(StorageError::ClaimLost(format!("run {run_id}")));
         }

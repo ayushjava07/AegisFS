@@ -180,7 +180,13 @@ fn dispatch_linear_run_succeeds() {
         .unwrap();
 
     let rid = RunId::from_validated("rn_linear00000000".to_owned());
-    let run = fixtures::run("rn_linear00000000", "tenant1", def_name, RunStatus::Queued, 1_000_000);
+    let run = fixtures::run(
+        "rn_linear00000000",
+        "tenant1",
+        def_name,
+        RunStatus::Queued,
+        1_000_000,
+    );
     store.put_run(&run).unwrap();
     enqueue(store.as_ref(), &rid, clock.value());
 

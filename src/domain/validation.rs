@@ -116,7 +116,11 @@ pub fn validate_webhook_url(url: &str) -> Result<(), String> {
     let parsed = url::Url::parse(url).map_err(|e| format!("webhook url is not parseable: {e}"))?;
     match parsed.scheme() {
         "http" | "https" => {}
-        other => return Err(format!("webhook url scheme must be http/https, got {other:?}")),
+        other => {
+            return Err(format!(
+                "webhook url scheme must be http/https, got {other:?}"
+            ))
+        }
     }
     if parsed.host_str().is_none() {
         return Err("webhook url has no host".to_owned());
@@ -159,7 +163,7 @@ mod tests {
     use super::*;
     use crate::domain::ids::HandlerId;
     use crate::domain::retry_policy::RetryPolicy;
-    use crate::domain::workflow::{Hooks, HookSpec, TaskSpec};
+    use crate::domain::workflow::{HookSpec, Hooks, TaskSpec};
     use std::collections::BTreeMap;
 
     fn base_def() -> WorkflowDef {
@@ -199,7 +203,10 @@ mod tests {
     fn invalid_name_rejected() {
         let mut def = base_def();
         def.name = "Nightly".to_owned();
-        assert!(matches!(validate_definition(&def), Err(DomainError::InvalidName(_))));
+        assert!(matches!(
+            validate_definition(&def),
+            Err(DomainError::InvalidName(_))
+        ));
     }
 
     #[test]
@@ -214,9 +221,10 @@ mod tests {
         let mut def = base_def();
         let dup = def.tasks[0].clone();
         def.tasks.push(dup);
-        assert!(
-            matches!(validate_definition(&def), Err(DomainError::DuplicateTaskName(_)))
-        );
+        assert!(matches!(
+            validate_definition(&def),
+            Err(DomainError::DuplicateTaskName(_))
+        ));
     }
 
     #[test]
@@ -239,9 +247,10 @@ mod tests {
     fn unknown_dependency_rejected() {
         let mut def = base_def();
         def.tasks[0].depends_on = vec!["ghost".to_owned()];
-        assert!(
-            matches!(validate_definition(&def), Err(DomainError::UnknownDependency(..)))
-        );
+        assert!(matches!(
+            validate_definition(&def),
+            Err(DomainError::UnknownDependency(..))
+        ));
     }
 
     #[test]
@@ -258,7 +267,10 @@ mod tests {
             max_attempts: 0,
             ..RetryPolicy::default()
         });
-        assert!(matches!(validate_definition(&def), Err(DomainError::InvalidPolicy(_))));
+        assert!(matches!(
+            validate_definition(&def),
+            Err(DomainError::InvalidPolicy(_))
+        ));
     }
 
     #[test]

@@ -12,8 +12,8 @@
 //! wall-clock runs, and every decision inside a batch depends only on store
 //! contents plus the injected [`Clock`].
 
-use std::sync::Arc;
 use std::sync::mpsc::{self, TrySendError};
+use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use crate::clock::Clock;
@@ -184,7 +184,8 @@ impl WorkerPool {
             let store = Arc::clone(&store);
             let clock = Arc::clone(&clock);
             workers.push(thread::spawn(move || {
-                let executor = RunExecutor::new(store.as_ref(), Arc::clone(&registry), clock.as_ref(), seed);
+                let executor =
+                    RunExecutor::new(store.as_ref(), Arc::clone(&registry), clock.as_ref(), seed);
                 loop {
                     let job = {
                         let guard = rx.lock();

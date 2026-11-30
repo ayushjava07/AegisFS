@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::api::{AppState, build_router, GrpcService};
+use crate::api::{build_router, AppState, GrpcService};
 use crate::clock::{Clock, SystemClock};
 use crate::config::Config;
 use crate::error::RunvaneError;
@@ -122,8 +122,8 @@ fn open_store(cfg: &Config) -> Result<Arc<dyn crate::persistence::Store>, Runvan
         Some(path) => {
             #[cfg(feature = "sqlite")]
             {
-                let store = crate::persistence::SqliteStore::open(path)
-                    .map_err(RunvaneError::Storage)?;
+                let store =
+                    crate::persistence::SqliteStore::open(path).map_err(RunvaneError::Storage)?;
                 Ok(Arc::new(store))
             }
             #[cfg(not(feature = "sqlite"))]
@@ -168,7 +168,11 @@ pub async fn serve(args: &ServeArgs) -> Result<(), RunvaneError> {
         product = PRODUCT_NAME,
         version = VERSION,
         workers = cfg.workers,
-        store = if cfg.sqlite_path.is_some() { "sqlite" } else { "memory" },
+        store = if cfg.sqlite_path.is_some() {
+            "sqlite"
+        } else {
+            "memory"
+        },
         "booted"
     );
 
@@ -249,7 +253,13 @@ fn spawn_scheduler_thread(args: SchedulerArgs) -> Result<(), RunvaneError> {
         metrics,
         stop,
     } = args;
-    let pool = WorkerPool::spawn(workers, registry, Arc::clone(&store), Arc::clone(&clock), SCHEDULER_SEED);
+    let pool = WorkerPool::spawn(
+        workers,
+        registry,
+        Arc::clone(&store),
+        Arc::clone(&clock),
+        SCHEDULER_SEED,
+    );
     let poll = Duration::from_millis(reap_ms.max(1) as u64);
     // Webhook watch: log deliveries by default; operators can point hooks at
     // loopback receivers or swap in a stronger sink. Anchored at boot so a
@@ -267,9 +277,7 @@ fn spawn_scheduler_thread(args: SchedulerArgs) -> Result<(), RunvaneError> {
         );
         while !stop.load(Ordering::SeqCst) {
             let stats = dispatcher.step();
-            metrics
-                .dispatches_total
-                .fetch_add(1, Ordering::Relaxed);
+            metrics.dispatches_total.fetch_add(1, Ordering::Relaxed);
             let reap = reap_expired_leases(store.as_ref(), clock.as_ref());
             let watch = watcher.poll(store.as_ref(), clock.now_ms());
             metrics
@@ -320,7 +328,10 @@ mod tests {
         args.http_port = None;
         let mut fresh = Config::from_file(&file).unwrap();
         let cfg3 = apply_config_layers(&mut fresh, &no_env(), &args).unwrap();
-        assert_eq!(cfg3.http_port, 7001, "file value restored once flag removed");
+        assert_eq!(
+            cfg3.http_port, 7001,
+            "file value restored once flag removed"
+        );
     }
 
     #[test]

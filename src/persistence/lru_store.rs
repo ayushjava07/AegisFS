@@ -7,8 +7,8 @@
 //! to the inner store, so ordering semantics and error behavior are untouched.
 
 use std::num::NonZeroUsize;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::sync::Mutex;
 
 use lru::LruCache;
@@ -106,7 +106,9 @@ impl Store for LruStore {
         self.inner.list_workflows()
     }
 
-    fn list_workflow_summaries(&self) -> Result<Vec<crate::persistence::WorkflowSummary>, StorageError> {
+    fn list_workflow_summaries(
+        &self,
+    ) -> Result<Vec<crate::persistence::WorkflowSummary>, StorageError> {
         self.inner.list_workflow_summaries()
     }
 
@@ -150,7 +152,11 @@ impl Store for LruStore {
         self.inner.enqueue(entry)
     }
 
-    fn scan_ready(&self, now_ms: i64, limit: usize) -> Result<Vec<crate::persistence::QueueEntry>, StorageError> {
+    fn scan_ready(
+        &self,
+        now_ms: i64,
+        limit: usize,
+    ) -> Result<Vec<crate::persistence::QueueEntry>, StorageError> {
         self.inner.scan_ready(now_ms, limit)
     }
 
@@ -164,7 +170,11 @@ impl Store for LruStore {
         self.inner.claim(run_id, token, now_ms, lease_ms)
     }
 
-    fn ack(&self, run_id: &RunId, token: &crate::persistence::ClaimToken) -> Result<(), StorageError> {
+    fn ack(
+        &self,
+        run_id: &RunId,
+        token: &crate::persistence::ClaimToken,
+    ) -> Result<(), StorageError> {
         self.inner.ack(run_id, token)
     }
 
@@ -177,7 +187,11 @@ impl Store for LruStore {
         self.inner.release(run_id, token, retry_at_ms)
     }
 
-    fn failclaim(&self, run_id: &RunId, token: &crate::persistence::ClaimToken) -> Result<(), StorageError> {
+    fn failclaim(
+        &self,
+        run_id: &RunId,
+        token: &crate::persistence::ClaimToken,
+    ) -> Result<(), StorageError> {
         self.inner.failclaim(run_id, token)
     }
 
@@ -285,6 +299,10 @@ mod tests {
         store.put_run(&run).unwrap();
         let _all = store.list_runs(&RunFilter::default()).unwrap();
         let (hits, misses) = store.cache_stats();
-        assert_eq!((hits, misses), (1, 1), "definition unaffected by unrelated ops");
+        assert_eq!(
+            (hits, misses),
+            (1, 1),
+            "definition unaffected by unrelated ops"
+        );
     }
 }

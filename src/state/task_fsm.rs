@@ -15,8 +15,7 @@ impl StateLabel for TaskStatus {
 }
 
 /// The singleton task transition table.
-pub const TASK_TABLE: TransitionTable<TaskStatus> =
-    TransitionTable::new(can_transition, all_task);
+pub const TASK_TABLE: TransitionTable<TaskStatus> = TransitionTable::new(can_transition, all_task);
 
 /// Every task status, in declaration order.
 pub const fn all_task() -> &'static [TaskStatus] {
@@ -41,8 +40,11 @@ pub const fn can_transition(from: TaskStatus, to: TaskStatus) -> bool {
     use TaskStatus::*;
     matches!(
         (from, to),
-        (Pending, Running) | (Pending, Failed) | (Pending, Skipped)
-            | (Running, Succeeded) | (Running, Failed)
+        (Pending, Running)
+            | (Pending, Failed)
+            | (Pending, Skipped)
+            | (Running, Succeeded)
+            | (Running, Failed)
             | (Failed, Running)
     )
 }

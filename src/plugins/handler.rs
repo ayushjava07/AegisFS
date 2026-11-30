@@ -234,7 +234,9 @@ mod tests {
     fn builtins_are_registered() {
         let r = registry();
         assert_eq!(r.ids().len(), 4);
-        assert!(r.get(&HandlerId::from_validated("runvane.echo".into())).is_some());
+        assert!(r
+            .get(&HandlerId::from_validated("runvane.echo".into()))
+            .is_some());
     }
 
     #[test]
@@ -280,7 +282,10 @@ mod tests {
 
     #[test]
     fn handler_error_helpers_shape_kind() {
-        assert_eq!(HandlerError::transient("x").kind, FailureKind::TransientFailure);
+        assert_eq!(
+            HandlerError::transient("x").kind,
+            FailureKind::TransientFailure
+        );
         assert_eq!(HandlerError::permanent("x").kind, FailureKind::Rejected);
     }
 }

@@ -47,7 +47,10 @@ pub enum RunStatus {
 impl RunStatus {
     /// Whether the status is a terminal leaf in the run state machine.
     pub const fn is_terminal(self) -> bool {
-        matches!(self, Self::Succeeded | Self::Failed | Self::Cancelled | Self::TimedOut)
+        matches!(
+            self,
+            Self::Succeeded | Self::Failed | Self::Cancelled | Self::TimedOut
+        )
     }
 
     /// Whether a run in this status has work outstanding (queued or running).
@@ -155,7 +158,10 @@ pub enum FailureKind {
 impl FailureKind {
     /// Whether a failure carrying this kind should be retried by default.
     pub fn retryable(self) -> bool {
-        matches!(self, Self::TransientFailure | Self::Timeout | Self::HandlerCrash)
+        matches!(
+            self,
+            Self::TransientFailure | Self::Timeout | Self::HandlerCrash
+        )
     }
 
     /// A short stable wire code for API responses and logs.

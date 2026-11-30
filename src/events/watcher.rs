@@ -148,7 +148,7 @@ impl Watcher {
 mod tests {
     use super::*;
     use crate::clock::ManualClock;
-    use crate::domain::workflow::{Hooks, HookSpec};
+    use crate::domain::workflow::{HookSpec, Hooks};
     use crate::persistence::fixtures;
     use crate::persistence::memory::MemoryStore;
 

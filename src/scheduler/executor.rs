@@ -117,19 +117,17 @@ impl<'a> RunExecutor<'a> {
 
     fn load_task(&self, run_id: &RunId, task_name: &str) -> TaskRun {
         let id = task_run_id(run_id.as_str(), task_name);
-        self.store
-            .get_task_run(&id)
-            .unwrap_or_else(|_| TaskRun {
-                id,
-                run_id: run_id.clone(),
-                task_name: task_name.to_owned(),
-                status: TaskStatus::Pending,
-                attempts: 0,
-                last_error: None,
-                started_at_ms: None,
-                finished_at_ms: None,
-                output: None,
-            })
+        self.store.get_task_run(&id).unwrap_or_else(|_| TaskRun {
+            id,
+            run_id: run_id.clone(),
+            task_name: task_name.to_owned(),
+            status: TaskStatus::Pending,
+            attempts: 0,
+            last_error: None,
+            started_at_ms: None,
+            finished_at_ms: None,
+            output: None,
+        })
     }
 
     /// Runs one attempt for `run_id` and persists every state change.
@@ -166,7 +164,9 @@ impl<'a> RunExecutor<'a> {
                 depth: 0,
                 attempts: run.attempts,
             });
-            self.store.put_run(&timed_out).map_err(ExecutorError::Store)?;
+            self.store
+                .put_run(&timed_out)
+                .map_err(ExecutorError::Store)?;
             return Ok(AttemptOutcome {
                 run_status: RunStatus::TimedOut,
                 failed_tasks: vec![],
@@ -280,10 +280,14 @@ impl<'a> RunExecutor<'a> {
             .store
             .list_task_runs_for_run(run_id)
             .unwrap_or_default();
-        let mut states: BTreeMap<String, TaskStatus> =
-            stored.iter().map(|t| (t.task_name.clone(), t.status)).collect();
+        let mut states: BTreeMap<String, TaskStatus> = stored
+            .iter()
+            .map(|t| (t.task_name.clone(), t.status))
+            .collect();
         for task in &def.tasks {
-            states.entry(task.name.clone()).or_insert(TaskStatus::Pending);
+            states
+                .entry(task.name.clone())
+                .or_insert(TaskStatus::Pending);
         }
         states
     }
@@ -323,7 +327,9 @@ impl<'a> RunExecutor<'a> {
             final_run.status = RunStatus::Succeeded;
             final_run.finished_at_ms = Some(self.clock.now_ms());
             final_run.error = None;
-            self.store.put_run(&final_run).map_err(ExecutorError::Store)?;
+            self.store
+                .put_run(&final_run)
+                .map_err(ExecutorError::Store)?;
             return Ok(AttemptOutcome {
                 run_status: RunStatus::Succeeded,
                 failed_tasks: vec![],
@@ -338,7 +344,9 @@ impl<'a> RunExecutor<'a> {
             .find(|(_, s)| **s == TaskStatus::Failed)
             .map(|(name, _)| {
                 let tr = self.load_task(&run.id, name);
-                tr.last_error.clone().unwrap_or_else(|| "task failed".to_owned())
+                tr.last_error
+                    .clone()
+                    .unwrap_or_else(|| "task failed".to_owned())
             })
             .unwrap_or_else(|| "task failed".to_owned());
         let failing: Vec<String> = states
@@ -359,7 +367,9 @@ impl<'a> RunExecutor<'a> {
             .all(|(name, _)| {
                 let tr = self.load_task(&run.id, name);
                 let task = def.tasks.iter().find(|t| t.name.as_str() == name);
-                let policy = task.map(|t| t.effective_retry(&def.retry)).unwrap_or(&def.retry);
+                let policy = task
+                    .map(|t| t.effective_retry(&def.retry))
+                    .unwrap_or(&def.retry);
                 tr.attempts < policy.max_attempts
             });
 
@@ -383,7 +393,9 @@ impl<'a> RunExecutor<'a> {
             .unwrap_or(self.clock.now_ms());
             retry_run.next_attempt_at_ms = Some(delay);
             retry_run.error = None;
-            self.store.put_run(&retry_run).map_err(ExecutorError::Store)?;
+            self.store
+                .put_run(&retry_run)
+                .map_err(ExecutorError::Store)?;
             // The driver releases the existing claim; no fresh enqueue here.
             return Ok(AttemptOutcome {
                 run_status: RunStatus::Queued,
@@ -408,7 +420,9 @@ impl<'a> RunExecutor<'a> {
             depth: 0,
             attempts: run.attempts,
         });
-        self.store.put_run(&final_run).map_err(ExecutorError::Store)?;
+        self.store
+            .put_run(&final_run)
+            .map_err(ExecutorError::Store)?;
         Ok(AttemptOutcome {
             run_status: RunStatus::Failed,
             failed_tasks: failing,

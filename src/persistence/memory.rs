@@ -149,8 +149,7 @@ impl Store for MemoryStore {
 
     fn list_runs(&self, filter: &RunFilter) -> Result<Vec<Run>, StoreError> {
         let guard = self.inner.lock();
-        let matched: Vec<&Run> =
-            guard.runs.values().filter(|r| filter.matches(r)).collect();
+        let matched: Vec<&Run> = guard.runs.values().filter(|r| filter.matches(r)).collect();
         Ok(filter.apply_order(matched))
     }
 
@@ -160,7 +159,10 @@ impl Store for MemoryStore {
     }
 
     fn put_task_run(&self, tr: &TaskRun) -> Result<(), StoreError> {
-        self.inner.lock().task_runs.insert(tr.id.clone(), tr.clone());
+        self.inner
+            .lock()
+            .task_runs
+            .insert(tr.id.clone(), tr.clone());
         Ok(())
     }
 
@@ -193,7 +195,10 @@ impl Store for MemoryStore {
     fn enqueue(&self, entry: QueueEntry) -> Result<(), StoreError> {
         let mut guard = self.inner.lock();
         if guard.queue.contains_key(&entry.run_id) {
-            return Err(StoreError::Conflict(format!("already queued: {}", entry.run_id)));
+            return Err(StoreError::Conflict(format!(
+                "already queued: {}",
+                entry.run_id
+            )));
         }
         guard.queue.insert(entry.run_id.clone(), entry);
         Ok(())

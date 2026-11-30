@@ -70,9 +70,9 @@ pub fn validate(from: RunStatus, to: RunStatus) -> Result<(), RunvaneError> {
     if is_legal(from, to) {
         Ok(())
     } else {
-        Err(RunvaneError::from(crate::domain::error::DomainError::IllegalTransition(
-            from, to,
-        )))
+        Err(RunvaneError::from(
+            crate::domain::error::DomainError::IllegalTransition(from, to),
+        ))
     }
 }
 
@@ -87,7 +87,11 @@ pub fn allowed_targets(from: RunStatus) -> Vec<RunStatus> {
 }
 
 /// Records a transition after validation, returning the applied record.
-pub fn record(from: RunStatus, to: RunStatus, at_ms: i64) -> Result<Transition<RunStatus>, RunvaneError> {
+pub fn record(
+    from: RunStatus,
+    to: RunStatus,
+    at_ms: i64,
+) -> Result<Transition<RunStatus>, RunvaneError> {
     match apply(&RUN_TABLE, from, to, at_ms) {
         crate::state::machine::ApplyResult::Applied(t) => Ok(t),
         crate::state::machine::ApplyResult::Illegal(_) => Err(RunvaneError::from(
@@ -127,7 +131,10 @@ mod tests {
     #[test]
     fn every_legal_edge_validates() {
         for (from, to) in legal_transitions() {
-            assert!(validate(from, to).is_ok(), "{from:?} -> {to:?} should be legal");
+            assert!(
+                validate(from, to).is_ok(),
+                "{from:?} -> {to:?} should be legal"
+            );
             assert!(record(from, to, 0).is_ok());
         }
     }

@@ -63,7 +63,10 @@ fn cancel_run_semantics(store: &dyn Store) {
         })
         .unwrap();
     assert!(store.cancel_run(&running.id, 300).unwrap());
-    assert_eq!(store.get_run(&running.id).unwrap().status, RunStatus::Cancelled);
+    assert_eq!(
+        store.get_run(&running.id).unwrap().status,
+        RunStatus::Cancelled
+    );
     assert!(store
         .enqueue(QueueEntry {
             run_id: running.id.clone(),
@@ -148,9 +151,7 @@ fn run_crud_and_filters(store: &dyn Store) {
 
     assert_eq!(store.get_run(&a.id).unwrap(), a);
 
-    let all = store
-        .list_runs(&RunFilter::default())
-        .unwrap();
+    let all = store.list_runs(&RunFilter::default()).unwrap();
     assert_eq!(all.len(), 3);
     // Newest first.
     assert_eq!(all[0].id, c.id);
@@ -175,7 +176,12 @@ fn run_crud_and_filters(store: &dyn Store) {
     assert_eq!(tenant[0].id, b.id);
 
     assert_eq!(
-        store.count_runs(&RunFilter { name: Some("nightly".into()), ..Default::default() }).unwrap(),
+        store
+            .count_runs(&RunFilter {
+                name: Some("nightly".into()),
+                ..Default::default()
+            })
+            .unwrap(),
         3
     );
 }

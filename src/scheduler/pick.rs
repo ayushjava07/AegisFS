@@ -25,9 +25,10 @@ pub fn ready_tasks(def: &WorkflowDef, states: &BTreeMap<String, TaskStatus>) -> 
         match status {
             TaskStatus::Failed => ready.push(name.clone()),
             TaskStatus::Pending => {
-                let deps_ok = task.depends_on.iter().all(|dep| {
-                    matches!(states.get(dep).copied(), Some(TaskStatus::Succeeded))
-                });
+                let deps_ok = task
+                    .depends_on
+                    .iter()
+                    .all(|dep| matches!(states.get(dep).copied(), Some(TaskStatus::Succeeded)));
                 if deps_ok {
                     ready.push(name.clone());
                 }
@@ -57,9 +58,10 @@ pub fn pending_to_skip(
             if status != TaskStatus::Pending {
                 continue;
             }
-            let dep_blocked = task.depends_on.iter().any(|dep| {
-                !matches!(next.get(dep).copied(), Some(TaskStatus::Succeeded))
-            });
+            let dep_blocked = task
+                .depends_on
+                .iter()
+                .any(|dep| !matches!(next.get(dep).copied(), Some(TaskStatus::Succeeded)));
             if dep_blocked {
                 next.insert(task.name.clone(), TaskStatus::Skipped);
                 changed = true;
@@ -142,7 +144,10 @@ mod tests {
         ]);
         let s = states(&[("left", TaskStatus::Succeeded)]);
         assert_eq!(ready_tasks(&d, &s), vec!["right".to_string()]);
-        let s2 = states(&[("left", TaskStatus::Succeeded), ("right", TaskStatus::Succeeded)]);
+        let s2 = states(&[
+            ("left", TaskStatus::Succeeded),
+            ("right", TaskStatus::Succeeded),
+        ]);
         assert_eq!(ready_tasks(&d, &s2), vec!["joint".to_string()]);
     }
 
@@ -162,10 +167,7 @@ mod tests {
 
     #[test]
     fn skipped_dep_blocks_rather_than_runs() {
-        let d = def(vec![
-            ("a".into(), vec![]),
-            ("b".into(), vec!["a".into()]),
-        ]);
+        let d = def(vec![("a".into(), vec![]), ("b".into(), vec!["a".into()])]);
         // b is Skipped -> it must not be selectable as ready for any consumer.
         let s = states(&[("a", TaskStatus::Succeeded), ("b", TaskStatus::Skipped)]);
         // a already done, b skipped: nothing more to dispatch.
@@ -181,10 +183,7 @@ mod tests {
 
     #[test]
     fn failed_tasks_are_selected_for_retry() {
-        let d = def(vec![
-            ("a".into(), vec![]),
-            ("b".into(), vec!["a".into()]),
-        ]);
+        let d = def(vec![("a".into(), vec![]), ("b".into(), vec!["a".into()])]);
         let s = states(&[("a", TaskStatus::Failed), ("b", TaskStatus::Succeeded)]);
         assert_eq!(ready_tasks(&d, &s), vec!["a".to_string()]);
     }

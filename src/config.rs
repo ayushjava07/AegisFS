@@ -112,9 +112,8 @@ impl Config {
 
     /// Parses a TOML document on top of the defaults.
     pub fn from_toml_str(toml: &str) -> Result<Self, RunvaneError> {
-        let file: ConfigFile = toml::from_str(toml).map_err(|e| {
-            RunvaneError::Config(format!("config file does not parse: {e}"))
-        })?;
+        let file: ConfigFile = toml::from_str(toml)
+            .map_err(|e| RunvaneError::Config(format!("config file does not parse: {e}")))?;
         if let Some(err) = unknown_key_error(&file.unknown) {
             return Err(err);
         }
@@ -248,7 +247,9 @@ impl Config {
 
 fn parse_required<T: std::str::FromStr>(name: &str, raw: &str) -> Result<T, RunvaneError> {
     raw.parse::<T>().map_err(|_| {
-        RunvaneError::Config(format!("{name} ({raw:?}) does not parse as the expected type"))
+        RunvaneError::Config(format!(
+            "{name} ({raw:?}) does not parse as the expected type"
+        ))
     })
 }
 

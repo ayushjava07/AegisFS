@@ -10,6 +10,8 @@
 pub mod filter;
 #[cfg(test)]
 pub mod fixtures;
+#[cfg(all(feature = "loom", any(target_arch = "x86_64", target_arch = "aarch64")))]
+pub mod loom_model;
 pub mod lru_store;
 pub mod memory;
 #[cfg(feature = "sqlite")]
@@ -160,7 +162,10 @@ mod tests {
     #[test]
     fn sqlite_store_full_suite() {
         let sqlite = SqliteStore::open_in_memory().unwrap();
-        assert_eq!(sqlite.schema_version().unwrap(), migrations::latest_version());
+        assert_eq!(
+            sqlite.schema_version().unwrap(),
+            migrations::latest_version()
+        );
         run_store_suite(&sqlite);
     }
 
@@ -200,8 +205,7 @@ mod tests {
                 }
             }));
         }
-        let winners: Vec<bool> =
-            handles.into_iter().map(|h| h.join().unwrap()).collect();
+        let winners: Vec<bool> = handles.into_iter().map(|h| h.join().unwrap()).collect();
         assert_eq!(winners.iter().filter(|w| **w).count(), 1);
     }
 
@@ -245,7 +249,10 @@ mod tests {
             .unwrap();
         store.delete_run(&run.id).unwrap();
         assert!(store.list_task_runs_for_run(&run.id).unwrap().is_empty());
-        assert!(matches!(store.get_run(&run.id), Err(StorageError::NotFound(_))));
+        assert!(matches!(
+            store.get_run(&run.id),
+            Err(StorageError::NotFound(_))
+        ));
     }
 
     // Store backends must be thread-safe handles.

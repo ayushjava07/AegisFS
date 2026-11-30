@@ -135,7 +135,10 @@ mod tests {
         let r1 = run(1, "acme", RunStatus::Queued, "prod");
         let r2 = run(2, "acme", RunStatus::Queued, "prod");
         let r3 = run(3, "acme", RunStatus::Queued, "prod");
-        let f = RunFilter { limit: Some(2), ..Default::default() };
+        let f = RunFilter {
+            limit: Some(2),
+            ..Default::default()
+        };
         let got = f.apply_order(vec![&r1, &r2, &r3]);
         assert_eq!(got.len(), 2);
         assert_eq!(got[0].created_at_ms, 3);

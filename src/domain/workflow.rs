@@ -221,7 +221,10 @@ mod tests {
                 ..Default::default()
             }],
         };
-        let urls: Vec<_> = hooks.all().filter_map(|h| h.webhook_url.as_deref()).collect();
+        let urls: Vec<_> = hooks
+            .all()
+            .filter_map(|h| h.webhook_url.as_deref())
+            .collect();
         assert_eq!(urls, vec!["u1", "u2", "u3", "u4"]);
     }
 
@@ -242,6 +245,9 @@ mod tests {
     #[test]
     fn description_length_capped() {
         assert!(sanitize_description(&"x".repeat(512)).is_ok());
-        assert_eq!(sanitize_description(&"x".repeat(513)), Err(DomainError::DescriptionTooLong));
+        assert_eq!(
+            sanitize_description(&"x".repeat(513)),
+            Err(DomainError::DescriptionTooLong)
+        );
     }
 }

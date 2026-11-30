@@ -151,7 +151,11 @@ mod tests {
     fn migration_versions_strictly_increase() {
         let mut last = 0u32;
         for m in MIGRATIONS {
-            assert!(m.version > last && m.version == last + 1, "version {} is gapless", m.version);
+            assert!(
+                m.version > last && m.version == last + 1,
+                "version {} is gapless",
+                m.version
+            );
             assert!(!m.name.is_empty());
             last = m.version;
         }

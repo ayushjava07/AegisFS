@@ -21,7 +21,7 @@ use tonic::{Request, Response, Status};
 use crate::api::error::ApiError;
 use crate::api::payloads::{TaskSpecPayload, WorkflowSpec};
 use crate::api::server::AppState;
-use crate::domain::ids::{RunId, generate_id};
+use crate::domain::ids::{generate_id, RunId};
 use crate::domain::retry_policy::{BackoffKind, JitterKind, RetryPolicy};
 use crate::domain::run::Run;
 use crate::domain::status::{Priority, RunStatus};
@@ -32,11 +32,11 @@ use crate::persistence::RunFilter;
 use crate::state::run_fsm;
 
 use self::proto::{
-    runvane_server::Runvane, CancelRunRequest, GetRunRequest, GetWorkflowRequest,
-    HealthRequest, HealthResponse, HookSpec as ProtoHookSpec, HooksSpec as ProtoHooksSpec,
-    ListRunsRequest, ListRunsResponse, ListWorkflowsRequest, ListWorkflowsResponse, RunResponse,
-    RetryPolicy as ProtoRetryPolicy, SubmitRunRequest, TaskSpec as ProtoTaskSpec,
-    WorkflowResponse, WorkflowSpec as ProtoWorkflowSpec,
+    runvane_server::Runvane, CancelRunRequest, GetRunRequest, GetWorkflowRequest, HealthRequest,
+    HealthResponse, HookSpec as ProtoHookSpec, HooksSpec as ProtoHooksSpec, ListRunsRequest,
+    ListRunsResponse, ListWorkflowsRequest, ListWorkflowsResponse, RetryPolicy as ProtoRetryPolicy,
+    RunResponse, SubmitRunRequest, TaskSpec as ProtoTaskSpec, WorkflowResponse,
+    WorkflowSpec as ProtoWorkflowSpec,
 };
 
 /// Generated protobuf stubs for `proto/runvane/v1/api.proto`.
@@ -133,7 +133,11 @@ fn retry_from(proto: Option<&ProtoRetryPolicy>) -> Result<Option<RetryPolicy>, S
         "" | "none" => JitterKind::None,
         "full" => JitterKind::Full,
         "equal" => JitterKind::Equal,
-        other => return Err(Status::invalid_argument(format!("invalid jitter {other:?}"))),
+        other => {
+            return Err(Status::invalid_argument(format!(
+                "invalid jitter {other:?}"
+            )))
+        }
     };
     let policy = RetryPolicy {
         max_attempts: r.max_attempts,
@@ -272,9 +276,8 @@ impl Runvane for GrpcService {
             if !tenant.is_empty() && rec.def.tenant != tenant {
                 continue;
             }
-            definition_json.push(
-                serde_json::to_vec(&rec.def).map_err(|e| Status::internal(e.to_string()))?,
-            );
+            definition_json
+                .push(serde_json::to_vec(&rec.def).map_err(|e| Status::internal(e.to_string()))?);
         }
         Ok(Response::new(ListWorkflowsResponse { definition_json }))
     }
@@ -380,8 +383,11 @@ impl Runvane for GrpcService {
         &self,
         request: Request<GetRunRequest>,
     ) -> Result<Response<RunResponse>, Status> {
-        let run_id = RunId::parse(&request.into_inner().id)
-            .map_err(|e| to_tonic(crate::api::error::ApiError::from(crate::error::RunvaneError::from(e))))?;
+        let run_id = RunId::parse(&request.into_inner().id).map_err(|e| {
+            to_tonic(crate::api::error::ApiError::from(
+                crate::error::RunvaneError::from(e),
+            ))
+        })?;
         let run = self.state.store.get_run(&run_id).map_err(to_tonic)?;
         let run_json = serde_json::to_vec(&run).map_err(|e| Status::internal(e.to_string()))?;
         Ok(Response::new(RunResponse { run_json }))
@@ -392,7 +398,9 @@ impl Runvane for GrpcService {
         request: Request<CancelRunRequest>,
     ) -> Result<Response<RunResponse>, Status> {
         let run_id = RunId::parse(&request.into_inner().id).map_err(|e| {
-            to_tonic(crate::api::error::ApiError::from(crate::error::RunvaneError::from(e)))
+            to_tonic(crate::api::error::ApiError::from(
+                crate::error::RunvaneError::from(e),
+            ))
         })?;
         let current = self.state.store.get_run(&run_id).map_err(to_tonic)?;
         match current.status {
@@ -419,15 +427,14 @@ impl Runvane for GrpcService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::server::{AppState, build_router};
+    use crate::api::server::{build_router, AppState};
     use crate::clock::ManualClock;
     use crate::persistence::memory::MemoryStore;
     use crate::plugins::handler::Registry;
 
     use self::proto::runvane_client::RunvaneClient;
     use self::proto::{
-        self as wire, GetRunRequest, TaskSpec as ProtoTaskSpec,
-        WorkflowSpec as ProtoWorkflowSpec,
+        self as wire, GetRunRequest, TaskSpec as ProtoTaskSpec, WorkflowSpec as ProtoWorkflowSpec,
     };
     use tonic::transport::Server;
 
@@ -474,7 +481,10 @@ mod tests {
         panic!("grpc server failed to come up on {addr}: {last_error:?}");
     }
 
-    async fn client() -> (RunvaneClient<tonic::transport::Channel>, tokio::task::JoinHandle<()>) {
+    async fn client() -> (
+        RunvaneClient<tonic::transport::Channel>,
+        tokio::task::JoinHandle<()>,
+    ) {
         let (addr, handle) = spawn_server().await;
         let client = connect(&addr).await;
         (client, handle)
@@ -533,11 +543,7 @@ mod tests {
         let (mut client, handle) = client().await;
 
         // Create + fetch.
-        let created = client
-            .create_workflow(spec())
-            .await
-            .unwrap()
-            .into_inner();
+        let created = client.create_workflow(spec()).await.unwrap().into_inner();
         let def: crate::domain::workflow::WorkflowDef =
             serde_json::from_slice(&created.definition_json).unwrap();
         assert_eq!(def.name, "ship");

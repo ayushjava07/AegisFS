@@ -186,7 +186,11 @@ mod tests {
         let t = TransitionTable::new(legal_light, all_light);
         assert!(matches!(
             apply(&t, Light::On, Light::Off, 5),
-            ApplyResult::Applied(Transition { from: Light::On, to: Light::Off, at_ms: 5 })
+            ApplyResult::Applied(Transition {
+                from: Light::On,
+                to: Light::Off,
+                at_ms: 5
+            })
         ));
         assert!(matches!(
             apply(&t, Light::On, Light::On, 6),

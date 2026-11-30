@@ -51,7 +51,9 @@ pub fn check_run_consistency(
     if run == RunStatus::Succeeded {
         if !all_terminal {
             let (name, _) = tasks.iter().find(|(_, s)| !s.is_terminal()).unwrap();
-            return Err(InvariantError::SucceededWithNonTerminalTask((*name).to_owned()));
+            return Err(InvariantError::SucceededWithNonTerminalTask(
+                (*name).to_owned(),
+            ));
         }
         return Ok(());
     }
@@ -74,7 +76,9 @@ pub fn check_run_consistency(
         let has_failed = tasks.iter().any(|(_, s)| *s == TaskStatus::Failed);
         if let Some((name, _)) = tasks.iter().find(|(_, s)| *s == TaskStatus::Skipped) {
             if !has_failed {
-                return Err(InvariantError::SkippedWithoutFailedDependency((*name).to_owned()));
+                return Err(InvariantError::SkippedWithoutFailedDependency(
+                    (*name).to_owned(),
+                ));
             }
         }
     }

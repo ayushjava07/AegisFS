@@ -186,7 +186,10 @@ mod tests {
     fn over_ceiling_attempts_rejected() {
         let mut p = sample();
         p.max_attempts = MAX_ATTEMPTS + 1;
-        assert_eq!(p.validate(), Err(PolicyError::BadAttempts(MAX_ATTEMPTS + 1)));
+        assert_eq!(
+            p.validate(),
+            Err(PolicyError::BadAttempts(MAX_ATTEMPTS + 1))
+        );
     }
 
     #[test]
@@ -223,7 +226,10 @@ mod tests {
     fn delay_over_ceiling_rejected() {
         let mut p = sample();
         p.max_delay_ms = MAX_BACKOFF_MS + 1;
-        assert_eq!(p.validate(), Err(PolicyError::DelayOverCeiling(MAX_BACKOFF_MS + 1)));
+        assert_eq!(
+            p.validate(),
+            Err(PolicyError::DelayOverCeiling(MAX_BACKOFF_MS + 1))
+        );
     }
 
     #[test]
