@@ -27,7 +27,7 @@ every phase. Consulting it first is mandatory if the session is interrupted.
 | 4 — CLI + config layer | complete |
 | 5 — plugins + webhooks/events | complete |
 | 6 — observability/cache/maintenance/dashboard | complete |
-| 7 — hardening pass | |
+| 7 — hardening pass | complete |
 | 8 — test-suite completion | |
 | 9 — clean-baseline verification (golden tag) | |
 | 10 — defect catalogue + injection | |
@@ -295,6 +295,25 @@ Commit count entering phase 2: 26.
   --all-targets` zero warnings.
 - Production LOC (cloc `src`, 51 Rust files, incl. test blocks):
   9,667 code + 1,534 comment lines.
+- Deviations: see table at top.
+
+## Phase 7 status: COMPLETE
+
+- Concurrency model checks: `src/persistence/loom_model.rs` runs the queue's
+  claim/ack/lease protocol as a `loom` model — single-winner concurrent
+  claim, no foreign-lease stealing, holder-guarded acks, and expired-lease
+  reclaim — enumerated over reachable interleavings. Feature-gated
+  (`--features loom` on x86_64/aarch64) and green under permutation.
+- Formatting: the tree had drifted from `cargo fmt` (mostly long lines);
+  a normalization pass now leaves `cargo fmt --check` clean. Committed as a
+  dedicated style commit on top of the model-check slice.
+- Also clean: `cargo clippy --all-targets` with and without `--features loom`
+  is zero-warning.
+- Commit count at phase end: 46 (19 pre-existing + 27 build commits).
+- `cargo test --lib` = 199 passed (195 without `sqlite`); 202 with the
+  `loom` feature; `cargo fmt --check` clean; zero-warning clippy everywhere.
+- Production LOC (cloc `src`, 52 Rust files, incl. test blocks):
+  9,919 code + 1,558 comment lines.
 - Deviations: see table at top.
 
 ## Phase 1 status: COMPLETE
